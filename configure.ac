@@ -1,5 +1,5 @@
 dnl Init.
-AC_INIT(dosbox,0.74)
+AC_INIT(dosbox,SVN)
 AC_PREREQ(2.50)
 AC_CONFIG_SRCDIR(README)
 
@@ -9,7 +9,7 @@ AC_CANONICAL_BUILD
 
 dnl Setup for automake
 AM_INIT_AUTOMAKE
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(config.h)
 
 dnl Checks for programs.
 AC_PROG_MAKE_SET
@@ -24,7 +24,6 @@ dnl perharps join this with the other target depended checks. move them upwards
 if test x$host = xi386-pc-os2-emx ; then
     CXXFLAGS="$CXXFLAGS -Zmt"
     LDFLAGS="$LDFLAGS -Zomf -Zmt"
-    LIBS="$LIBS -los2me"
 fi
 
 dnl Check for SDL
@@ -38,7 +37,7 @@ CPPFLAGS="$CPPFLAGS $SDL_CFLAGS"
 
 dnl Check if SDL is 1.2.x (1.3 not supported)
 AC_MSG_CHECKING([SDL version only being 1.2.X])
-AC_COMPILE_IFELSE([
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 #include "SDL.h"
 void blah(){
 #if SDL_MINOR_VERSION != 2
@@ -46,7 +45,7 @@ void blah(){
 #endif
 ;
 }
-],AC_MSG_RESULT([yes]),[
+])],AC_MSG_RESULT([yes]),[
  AC_MSG_RESULT([no]) 
  AC_MSG_ERROR([Only libSDL 1.2.X supported])])
 
@@ -82,7 +81,7 @@ AC_CHECK_HEADERS([sys/socket.h  netinet/in.h pwd.h], [], [],
 ])
 
 dnl check for the socklen_t (darwin doesn't always have it)
-AC_COMPILE_IFELSE([
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 #include <stdio.h>
 #ifdef STDC_HEADERS
 # include <stdlib.h>
@@ -98,7 +97,7 @@ AC_COMPILE_IFELSE([
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-],[],[AC_DEFINE([socklen_t],[int],[Define to `int` if you don't have socklen_t])])
+])],[],[AC_DEFINE([socklen_t],[int],[Define to `int` if you don't have socklen_t])])
 
 AC_MSG_CHECKING(if environ can be included)
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
@@ -111,13 +110,13 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[extern char ** environ;]],[[*environ;]])],
 [AC_MSG_RESULT(yes);AC_DEFINE(ENVIRON_LINKED,1,[environ can be linked])],AC_MSG_RESULT(no))
 
 AC_MSG_CHECKING([if dirent includes d_type])
-AC_COMPILE_IFELSE([
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
 #include <sys/types.h>
 #include <dirent.h>
 void blah(){
 struct dirent d_test;
 d_test.d_type = 0;
-}],[AC_MSG_RESULT(yes);AC_DEFINE(DIRENT_HAS_D_TYPE,1,[struct dirent has d_type])],AC_MSG_RESULT(no))
+}])],[AC_MSG_RESULT(yes);AC_DEFINE(DIRENT_HAS_D_TYPE,1,[struct dirent has d_type])],AC_MSG_RESULT(no))
 
 
 dnl Check for powf
@@ -129,11 +128,17 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <math.h>]],[[
 ]])], [AC_MSG_RESULT(yes)], [AC_DEFINE([DB_HAVE_NO_POWF],[1],[libm doesn't include powf])])
 LIBS=$LIBS_BACKUP
 
+dnl Look for clock_gettime, a DB_HAVE_CLOCK_GETTIME is set when present
+AH_TEMPLATE([DB_HAVE_CLOCK_GETTIME],[Determines if the function clock_gettime is available.])
+AC_SEARCH_LIBS([clock_gettime], [rt] , [found_clock_gettime=yes], [found_clock_gettime=no])
+if test x$found_clock_gettime = xyes; then
+  AC_DEFINE(DB_HAVE_CLOCK_GETTIME)
+fi
 
 dnl Checks for libraries.
 
 #Check if the compiler support attributes
-AH_TEMPLATE([C_HAS_ATTRIBUTE],[Determines if the compilers supports attributes for structures.])
+AH_TEMPLATE([C_HAS_ATTRIBUTE],[Determines if the compiler supports attributes for structures.])
 AC_MSG_CHECKING(if compiler allows __attribute__)
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 typedef struct { } __attribute__((packed)) junk;]],
@@ -144,15 +149,15 @@ typedef struct { } __attribute__((packed)) junk;]],
 OLDCFLAGS="$CFLAGS"
 CFLAGS="-Werror"
 
-AH_TEMPLATE([C_ATTRIBUTE_ALWAYS_INLINE],[Determines if the compilers supports always_inline attribute.])
+AH_TEMPLATE([C_ATTRIBUTE_ALWAYS_INLINE],[Determines if the compiler supports always_inline attribute.])
 AC_MSG_CHECKING(if compiler allows __attribute__((always_inline)) )
-AC_COMPILE_IFELSE([ void __attribute__((always_inline)) test(){}
-],[ AC_MSG_RESULT(yes);AC_DEFINE(C_ATTRIBUTE_ALWAYS_INLINE)],AC_MSG_RESULT(no))
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([ inline void __attribute__((always_inline)) test(){}
+])],[ AC_MSG_RESULT(yes);AC_DEFINE(C_ATTRIBUTE_ALWAYS_INLINE)],AC_MSG_RESULT(no))
 
-AH_TEMPLATE([C_ATTRIBUTE_FASTCALL],[Determines if the compilers supports fastcall attribute.])
+AH_TEMPLATE([C_ATTRIBUTE_FASTCALL],[Determines if the compiler supports fastcall attribute.])
 AC_MSG_CHECKING(if compiler allows __attribute__((fastcall)) )
-AC_COMPILE_IFELSE([ void __attribute__((fastcall)) test(){}
-],[ AC_MSG_RESULT(yes);AC_DEFINE(C_ATTRIBUTE_FASTCALL)],AC_MSG_RESULT(no))
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([ void __attribute__((fastcall)) test(){}
+])],[ AC_MSG_RESULT(yes);AC_DEFINE(C_ATTRIBUTE_FASTCALL)],AC_MSG_RESULT(no))
 
 
 CFLAGS="$OLDCFLAGS"
@@ -168,6 +173,21 @@ int x=10;if( __builtin_expect ((x==1),0) ) ;
 ]])], [ AC_MSG_RESULT(yes);AC_DEFINE(C_HAS_BUILTIN_EXPECT)],AC_MSG_RESULT(no))
 #switch language back
 AC_LANG_POP(C++)
+
+dnl test if compiler supports -mno-ms-bitfields as it is bugged 
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52991
+BACKUP_CFLAGS="$CFLAGS"
+CFLAGS="-mno-ms-bitfields"
+AC_MSG_CHECKING(if compiler supports -mno-ms-bitfields)
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+void blah(){
+;
+}
+])],[
+AC_MSG_RESULT([yes])
+CXXFLAGS="$CXXFLAGS -mno-ms-bitfields"
+],[AC_MSG_RESULT([no])])
+CFLAGS="$BACKUP_CFLAGS"
 
 dnl enable disable alsa and pass it's cflags to CXXFLAGS
 AC_ARG_ENABLE(alsa-midi,
@@ -313,14 +333,15 @@ else
   AC_MSG_RESULT(no)
 fi 
 
-AH_TEMPLATE(C_FPU_X86,[Define to 1 to use a x86 assembly fpu core])
+AH_TEMPLATE(C_FPU_X86,[Define to 1 to use a x86/x64 assembly fpu core])
 AC_ARG_ENABLE(fpu-x86,AC_HELP_STRING([--disable-fpu-x86],[Disable x86 assembly fpu core]),,enable_fpu_x86=yes)
-AC_MSG_CHECKING(whether x86 assembly fpu core will be enabled) 
-if test x$enable_fpu_x86 = xno ; then 
+AC_ARG_ENABLE(fpu-x64,AC_HELP_STRING([--disable-fpu-x64],[Disable x64 assembly fpu core]),,enable_fpu_x64=yes)
+AC_MSG_CHECKING(whether the x86/x64 assembly fpu core will be enabled) 
+if test x$enable_fpu_x86 = xno -o x$enable_fpu_x64 = xno; then 
    AC_MSG_RESULT(no)
 else
   if test x$enable_fpu = xyes; then
-    if test x$c_targetcpu = xx86 ; then
+    if test x$c_targetcpu = xx86 -o x$c_targetcpu = xx86_64; then
         AC_DEFINE(C_FPU_X86,1)
         AC_MSG_RESULT(yes)
     else
@@ -413,6 +434,28 @@ case "$host" in
        fi
        ;;
 esac
+else
+   AC_MSG_RESULT(no)
+fi
+
+AH_TEMPLATE(C_DDRAW,[Define to 1 to enable output=ddraw (Win32)])
+AC_ARG_ENABLE(ddraw,AC_HELP_STRING([--disable-ddraw],[Disable ddraw support]),,enable_ddraw=yes)
+AC_CHECK_HEADER(ddraw.h, have_ddraw_h=yes , have_ddraw_h=no , )
+AC_MSG_CHECKING(whether ddraw display output will be enabled)
+if test x$enable_ddraw = xyes; then
+case "$host" in
+    *-*-cygwin* | *-*-mingw32*)
+       if test x$have_ddraw_h = xyes ; then
+         AC_MSG_RESULT(yes)
+         AC_DEFINE(C_DDRAW,1)
+       else
+         AC_MSG_RESULT(no)
+       fi
+       ;;
+    *)
+       AC_MSG_RESULT(no)
+       ;;
+esac
 fi
 
 AH_TEMPLATE(C_SDL_SOUND,[Define to 1 to enable SDL_sound support])
@@ -439,19 +482,18 @@ AC_CHECK_FUNC([mprotect],[AC_DEFINE(C_HAVE_MPROTECT,1)])
 dnl Setpriority
 AH_TEMPLATE(C_SET_PRIORITY,[Define to 1 if you have setpriority support])
 AC_MSG_CHECKING(for setpriority support)
-AC_LINK_IFELSE([
+AC_LINK_IFELSE([AC_LANG_SOURCE([
 #include <sys/resource.h>
 int main(int argc,char * argv[]) {
 	return setpriority (PRIO_PROCESS, 0,PRIO_MIN+PRIO_MAX);
 };
-],AC_MSG_RESULT(yes);AC_DEFINE(C_SET_PRIORITY,1),AC_MSG_RESULT(no))
+])],AC_MSG_RESULT(yes);AC_DEFINE(C_SET_PRIORITY,1),AC_MSG_RESULT(no))
 
 
 dnl Some target detection and actions for them
 case "$host" in
     *-*-cygwin* | *-*-mingw32*)
        LIBS="$LIBS -lwinmm"
-       AC_CHECK_HEADERS(ddraw.h)
        AC_DEFINE(C_DIRECTSERIAL, 1, [ Define to 1 if you want serial passthrough support (Win32, Posix and OS/2 only).])
        if test x$have_sdl_net_lib = xyes -a x$have_sdl_net_h = xyes ; then
          LIBS="$LIBS -lws2_32"

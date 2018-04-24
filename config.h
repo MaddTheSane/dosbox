@@ -31,7 +31,13 @@ This means that this file has had too many modifications to be safely replaceabl
 
 
 /* Determines if the compilers supports always_inline attribute. */
+//--Modified 2018-01-30 by C.W. Betts to enable inlining for release builds
+#if defined(BOXER_DEBUG) && BOXER_DEBUG
 #undef C_ATTRIBUTE_ALWAYS_INLINE
+#else
+#define C_ATTRIBUTE_ALWAYS_INLINE 1
+#endif
+//--End of modifications
 
 /* Determines if the compilers supports fastcall attribute. */
 #undef C_ATTRIBUTE_FASTCALL
@@ -138,6 +144,12 @@ This means that this file has had too many modifications to be safely replaceabl
 
 /* Define to 1 to use a unaligned memory access */
 //#define C_UNALIGNED_MEMORY 1
+
+/* Determines if the function clock_gettime is available. */
+//--Modified 2018-01-29 by C.W. Betts to undefine this manually:
+// clock_gettime was added in 10.12, but we're targeting 10.9.
+//#undef DB_HAVE_CLOCK_GETTIME
+//--End of modifications
 
 /* libm doesn't include powf */
 /* #undef DB_HAVE_NO_POWF */
