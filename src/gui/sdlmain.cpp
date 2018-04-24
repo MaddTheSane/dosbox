@@ -414,13 +414,16 @@ check_gotbpp:
 		goto check_gotbpp;
 #endif
 	case SCREEN_OVERLAY:
+		//We only accept 32bit output from the scalers here
+		//Can't handle true color inputs
 		if (flags & GFX_RGBONLY || !(flags&GFX_CAN_32)) goto check_surface;
 		flags|=GFX_SCALING;
 		flags&=~(GFX_CAN_8|GFX_CAN_15|GFX_CAN_16);
 		break;
 #if C_OPENGL
 	case SCREEN_OPENGL:
-		if (flags & GFX_RGBONLY || !(flags&GFX_CAN_32)) goto check_surface;
+		//We only accept 32bit output from the scalers here
+		if (!(flags&GFX_CAN_32)) goto check_surface;
 		flags|=GFX_SCALING;
 		flags&=~(GFX_CAN_8|GFX_CAN_15|GFX_CAN_16);
 		break;
@@ -676,7 +679,7 @@ dosurface:
 			free(sdl.opengl.framebuf);
 		}
 		sdl.opengl.framebuf=0;
-		if (!(flags&GFX_CAN_32) || (flags & GFX_RGBONLY)) goto dosurface;
+		if (!(flags&GFX_CAN_32)) goto dosurface;
 		int texsize=2 << int_log2(width > height ? width : height);
 		if (texsize>sdl.opengl.max_texsize) {
 			LOG_MSG("SDL:OPENGL: No support for texturesize of %d, falling back to surface",texsize);
@@ -1491,14 +1494,32 @@ bool GFX_IsFullscreen(void) {
 	return sdl.desktop.fullscreen;
 }
 
+#if defined(MACOSX)
+#define DB_POLLSKIP 3
+#else
+//Not used yet, see comment below
+#define DB_POLLSKIP 1
+#endif
+
 void GFX_Events() {
+	//Don't poll too often. This can be heavy on the OS, especially Macs.
+	//In idle mode 3000-4000 polls are done per second without this check.
+	//Macs, with this code,  max 250 polls per second. (non-macs unused default max 500)
+	//Currently not implemented for all platforms, given the ALT-TAB stuff for WIN32.
+#if defined (MACOSX)
+	static int last_check = 0;
+	int current_check = GetTicks();
+	if (current_check - last_check <=  DB_POLLSKIP) return;
+	last_check = current_check;
+#endif
+
 	SDL_Event event;
 #if defined (REDUCE_JOYSTICK_POLLING)
-	static int poll_delay=0;
-	int time=GetTicks();
-	if (time-poll_delay>20) {
-		poll_delay=time;
-		if (sdl.num_joysticks>0) SDL_JoystickUpdate();
+	static int poll_delay = 0;
+	int time = GetTicks();
+	if (time - poll_delay > 20) {
+		poll_delay = time;
+		if (sdl.num_joysticks > 0) SDL_JoystickUpdate();
 		MAPPER_UpdateJoysticks();
 	}
 #endif
@@ -1980,7 +2001,9 @@ int main(int argc, char* argv[]) {
 	 */
 	putenv(const_cast<char*>("SDL_DISABLE_LOCK_KEYS=1"));
 #endif
-	if ( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_CDROM
+	// Don't init timers, GetTicks seems to work fine and they can use a fair amount of power (Macs again) 
+	// Please report problems with audio and other things.
+	if ( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO | /*SDL_INIT_TIMER |*/ SDL_INIT_CDROM
 		|SDL_INIT_NOPARACHUTE
 		) < 0 ) E_Exit("Can't init SDL %s",SDL_GetError());
 	sdl.inited = true;
