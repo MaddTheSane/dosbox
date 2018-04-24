@@ -256,8 +256,14 @@ static Bitu MakeAspectTable(Bitu skip,Bitu height,double scaley,Bitu miny) {
 	return linesadded;
 }
 
+//--Modified 2009-10-18 by Alun Bestor: make unstatic to permit Boxer to call this function itself
+/* static */ void RENDER_Reset( void ) {
+//--End of modifications
 
-static void RENDER_Reset( void ) {
+	//--Added 2009-03-06 by Alun Bestor to allow Boxer to override DOSBox's scaler settings
+	boxer_applyRenderingStrategy();
+	//--End of modifications
+
 	Bitu width=render.src.width;
 	Bitu height=render.src.height;
 	bool dblw=render.src.dblw;

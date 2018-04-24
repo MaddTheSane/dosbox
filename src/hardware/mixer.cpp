@@ -631,7 +631,10 @@ public:
 		if (cmd->FindExist("/NOSHOW")) return;
 		chan=mixer.channels;
 		WriteOut("Channel  Main    Main(dB)\n");
-		ShowVolume("MASTER",mixer.mastervol[0],mixer.mastervol[1]);
+        //--Modified 2012-02-26 by Alun Bestor to show Boxer's master volume instead.
+		//ShowVolume("MASTER",mixer.mastervol[0],mixer.mastervol[1]);
+        ShowVolume("MASTER", boxer_masterVolume(BXLeftChannel), boxer_masterVolume(BXRightChannel));
+        //--End of modifications
 		for (chan=mixer.channels;chan;chan=chan->next)
 			ShowVolume(chan->name,chan->volmain[0],chan->volmain[1]);
 	}

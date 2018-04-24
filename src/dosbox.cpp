@@ -803,7 +803,7 @@ void DOSBOX_Init(void) {
 	Pstring->Set_values(serials);
 	Pstring = Pmulti_remain->GetSection()->Add_string("parameters",Property::Changeable::WhenIdle,"");
 	Pmulti_remain->Set_help("see serial1");
-    
+
     //--Added 2012-10-19 by Alun Bestor to allow parallel port emulation
 	// parallel ports
 	secprop=control->AddSection_prop("parallel",&PARALLEL_Init,true);
@@ -838,7 +838,7 @@ void DOSBOX_Init(void) {
 	Pstring = secprop->Add_string("parallel3",Property::Changeable::WhenIdle,"disabled");
 	Pstring->Set_help("see parallel1");
 //--End of modifications
-    
+
 	/* All the DOS Related stuff, which will eventually start up in the shell */
 	secprop=control->AddSection_prop("dos",&DOS_Init,false);//done
 	secprop->AddInitFunction(&XMS_Init,true);//done

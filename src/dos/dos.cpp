@@ -28,6 +28,7 @@
 #include "dos_inc.h"
 #include "setup.h"
 #include "support.h"
+#include "parport.h"
 #include "serialport.h"
 
 DOS_Block dos;
@@ -160,8 +161,18 @@ static Bitu DOS_21Handler(void) {
 		}
 		break;
 	case 0x05:		/* Write Character to PRINTER */
-		E_Exit("DOS:Unhandled call %02X",reg_ah);
-		break;
+        //--Added 2012-09-11 by Alun Bestor for printer emulation 
+        {
+            for(int i = 0; i < 3; i++) {
+                // look up a parallel port
+                if(parallelPortObjects[i] != NULL) {
+                    parallelPortObjects[i]->Putchar(reg_dl);
+                    break;
+                }
+            }
+            break;
+        }
+        //--End of modifications
 	case 0x06:		/* Direct Console Output / Input */
 		switch (reg_dl) {
 		case 0xFF:	/* Input */
@@ -1242,7 +1253,20 @@ public:
 		dos.direct_output=false;
 	}
 	~DOS(){
-		for (Bit16u i=0;i<DOS_DRIVES;i++) delete Drives[i];
+		//--Modified 2009-12-20 by Alun Bestor to properly clear the devices list on shutdown.
+		//We could also do this with Files, but DOS_SetupFiles() already does this.
+		Bit16u i;
+		for (i=0;i<DOS_DEVICES;i++) if (Devices[i])
+		{
+			delete Devices[i];
+			Devices[i] = 0;
+		}
+		for (i=0;i<DOS_DRIVES;i++) if (Drives[i])
+		{
+			delete Drives[i];
+			Drives[i] = 0;
+		}
+		//--End of modifications
 	}
 };
 

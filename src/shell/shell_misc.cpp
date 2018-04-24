@@ -56,7 +56,11 @@ void DOS_Shell::InputCommand(char * line) {
 
 	while (size) {
 		dos.echo=false;
-		while(!DOS_ReadFile(input_handle,&c,&n)) {
+		
+		//--Modified 2012-08-19 by Alun Bestor to let Boxer inject its own input
+        //and cancel keyboard input listening.
+        boxer_shellWillReadCommandInputFromHandle(this, input_handle);
+		while(boxer_continueListeningForKeyEvents() && !DOS_ReadFile(input_handle,&c,&n)) {
 			Bit16u dummy;
 			DOS_CloseFile(input_handle);
 			DOS_OpenFile("con",2,&dummy);

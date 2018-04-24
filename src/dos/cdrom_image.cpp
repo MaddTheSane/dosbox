@@ -130,9 +130,9 @@ int CDROM_Interface_Image::AudioFile::getLength()
 int CDROM_Interface_Image::refCount = 0;
 CDROM_Interface_Image* CDROM_Interface_Image::images[26];
 CDROM_Interface_Image::imagePlayer CDROM_Interface_Image::player = {
-	NULL, NULL, NULL, {0}, 0, 0, 0, false, false, false, {0} };
+	NULL, NULL, NULL, {0}, 0, 0, 0, false, false, false, {{0}} };
 
-	
+
 CDROM_Interface_Image::CDROM_Interface_Image(Bit8u subUnit)
 {
 	images[subUnit] = this;
@@ -166,11 +166,15 @@ bool CDROM_Interface_Image::SetDevice(char* path, int forceCD)
 	if (LoadCueSheet(path)) return true;
 	if (LoadIsoFile(path)) return true;
 	
+    //--Disabled 2012-11-07 by Alun Bestor: this is already covered by our own error messages.
+    /*
 	// print error message on dosbox console
 	char buf[MAX_LINE_LENGTH];
 	snprintf(buf, MAX_LINE_LENGTH, "Could not load image file: %s\n", path);
 	Bit16u size = (Bit16u)strlen(buf);
 	DOS_WriteFile(STDOUT, (Bit8u*)buf, &size);
+     */
+    //--End of modifications
 	return false;
 }
 
