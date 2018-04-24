@@ -90,7 +90,7 @@ static void LoadMessageFile(const char * fname) {
 			if (*parser!=10 && *parser!=13) {
 				*writer++=*parser;
 			}
-			*parser++;
+			*parser += 1;
 		}
 		*writer=0;
 		/* New string name */
@@ -113,6 +113,13 @@ static void LoadMessageFile(const char * fname) {
 	fclose(mfile);
 }
 
+//--Modified 2009-02-23 by Alun Bestor: replaced this function to route all localizations off to our own translation files
+const char * MSG_Get(char const * msg)
+{
+	return boxer_localizedStringForKey(msg);
+}
+/*
+
 const char * MSG_Get(char const * msg) {
 	for(itmb tel=Lang.begin();tel!=Lang.end();tel++){	
 		if((*tel).name==msg)
@@ -122,6 +129,8 @@ const char * MSG_Get(char const * msg) {
 	}
 	return "Message not Found!\n";
 }
+*/
+//--End of modifications
 
 
 void MSG_Write(const char * location) {

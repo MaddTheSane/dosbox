@@ -148,13 +148,14 @@ void CSerialModem::SendRes(ResTypes response) {
 	char const * string;Bitu code;
 	switch (response)
 	{
-		case ResNONE:		return;
 		case ResOK:			string="OK"; code=0; break;
 		case ResERROR:		string="ERROR"; code=4; break;
 		case ResRING:		string="RING"; code=2; break;
 		case ResNODIALTONE: string="NO DIALTONE"; code=6; break;
 		case ResNOCARRIER:	string="NO CARRIER" ;code=3; break;
 		case ResCONNECT:	string="CONNECT 57600"; code=1; break;
+		case ResNONE:
+		default:			return;
 	}
 	
 	if(doresponse!=1) {
@@ -271,7 +272,7 @@ void CSerialModem::EnterIdleState(void){
 	}
 	// get rid of everything
 	if(serversocket) {
-		while(waitingclientsocket=serversocket->Accept())
+		while((waitingclientsocket=serversocket->Accept()))
 			delete waitingclientsocket;
 	} else if (listenport) {
 		
@@ -648,7 +649,7 @@ void CSerialModem::TelnetEmulation(Bit8u * data, Bitu size) {
 
 void CSerialModem::Timer2(void) {
 
-	unsigned long args = 1;
+	//unsigned long args = 1;
 	bool sendbyte = true;
 	Bitu usesize;
 	Bit8u txval;
@@ -783,8 +784,8 @@ void CSerialModem::setBreak(bool) {
 	// TODO: handle this
 }
 
-void CSerialModem::setRTSDTR(bool rts, bool dtr) {
-	setDTR(dtr);
+void CSerialModem::setRTSDTR(bool _rts, bool _dtr) {
+	setDTR(_dtr);
 }
 void CSerialModem::setRTS(bool val) {
 	

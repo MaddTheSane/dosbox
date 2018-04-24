@@ -29,6 +29,11 @@
 #include "cross.h"
 #include "bios.h"
 
+//--Added 2011-04-18 by Alun Bestor to fix FAT image endianness bugs
+#import "BXCoalfaceDrives.h"
+//--endif
+
+
 #define IMGTYPE_FLOPPY 0
 #define IMGTYPE_ISO    1
 #define IMGTYPE_HDD	   2
@@ -70,7 +75,7 @@ private:
 
 /* IN - char * filename: Name in regular filename format, e.g. bob.txt */
 /* OUT - char * filearray: Name in DOS directory format, eleven char, e.g. bob     txt */
-static void convToDirFile(char *filename, char *filearray) {
+static void convToDirFile(const char *filename, char *filearray) {
 	Bit32u charidx = 0;
 	Bit32u flen,i;
 	flen = (Bit32u)strlen(filename);
@@ -394,7 +399,7 @@ void fatDrive::setClusterValue(Bit32u clustNum, Bit32u clustValue) {
 	}
 }
 
-bool fatDrive::getEntryName(char *fullname, char *entname) {
+bool fatDrive::getEntryName(const char *fullname, char *entname) {
 	char dirtoken[DOS_PATHLENGTH];
 
 	char * findDir;
@@ -462,7 +467,7 @@ bool fatDrive::getFileDirEntry(char const * const filename, direntry * useEntry,
 	return true;
 }
 
-bool fatDrive::getDirClustNum(char *dir, Bit32u *clustNum, bool parDir) {
+bool fatDrive::getDirClustNum(const char *dir, Bit32u *clustNum, bool parDir) {
 	Bit32u len = (Bit32u)strlen(dir);
 	char dirtoken[DOS_PATHLENGTH];
 	Bit32u currentClust = 0;
@@ -628,6 +633,10 @@ bool fatDrive::allocateCluster(Bit32u useCluster, Bit32u prevCluster) {
 }
 
 fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector, Bit32u headscyl, Bit32u cylinders, Bit32u startSector) {
+	//--Added 2009-10-25 by Alun Bestor to allow Boxer to track the system path for DOSBox drives
+	strcpy(systempath, sysFilename);
+	//--End of modifications
+	
 	created_successfully = true;
 	FILE *diskfile;
 	Bit32u filesize;
@@ -657,7 +666,19 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 
 		loadedDisk->Read_Sector(0,0,1,&mbrData);
 
-		if(mbrData.magic1!= 0x55 ||	mbrData.magic2!= 0xaa) LOG_MSG("Possibly invalid partition table in disk image.");
+        //--Added 2011-07-23 by Alun Bestor to correct byte order for PowerPC endianness
+        mbrData = boxer_FATPartitionTableLittleToHost(mbrData);
+        //--End of modifications
+        
+		if(mbrData.magic1!= 0x55 ||	mbrData.magic2!= 0xaa)
+        {
+            LOG_MSG("Possibly invalid partition table in disk image.");
+            
+            //--Added 2011-07-22 by Alun Bestor to bail out of reading invalid images
+            created_successfully = false;
+            return;
+            //--End of modifications
+        }
 
 		startSector = 63;
 		int m;
@@ -679,9 +700,19 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 	}
 
 	loadedDisk->Read_AbsoluteSector(0+partSectOff,&bootbuffer);
+    
+    //--Added 2011-07-22 by Alun Bestor to correct byte order for PowerPC endianness
+    bootbuffer = boxer_FATBootstrapLittleToHost(bootbuffer);
+    //--End of modifications
+    
 	if ((bootbuffer.magic1 != 0x55) || (bootbuffer.magic2 != 0xaa)) {
 		/* Not a FAT filesystem */
 		LOG_MSG("Loaded image has no valid magicnumbers at the end!");
+        
+        //--Added 2011-07-22 by Alun Bestor to bail out of reading invalid images
+		created_successfully = false;
+		return;
+        //--End of modifications
 	}
 
 	if(!bootbuffer.sectorsperfat) {
@@ -770,7 +801,7 @@ Bits fatDrive::UnMount(void) {
 
 Bit8u fatDrive::GetMediaByte(void) { return loadedDisk->GetBiosType(); }
 
-bool fatDrive::FileCreate(DOS_File **file, char *name, Bit16u attributes) {
+bool fatDrive::FileCreate(DOS_File **file, const char *name, Bit16u attributes) {
 	direntry fileEntry;
 	Bit32u dirClust, subEntry;
 	char dirName[DOS_NAMELENGTH_ASCII];
@@ -820,7 +851,7 @@ bool fatDrive::FileExists(const char *name) {
 	return true;
 }
 
-bool fatDrive::FileOpen(DOS_File **file, char *name, Bit32u flags) {
+bool fatDrive::FileOpen(DOS_File **file, const char *name, Bit32u flags) {
 	direntry fileEntry;
 	Bit32u dirClust, subEntry;
 	if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) return false;
@@ -840,7 +871,7 @@ bool fatDrive::FileStat(const char * /*name*/, FileStat_Block *const /*stat_bloc
 	return false;
 }
 
-bool fatDrive::FileUnlink(char * name) {
+bool fatDrive::FileUnlink(const char * name) {
 	direntry fileEntry;
 	Bit32u dirClust, subEntry;
 
@@ -854,7 +885,7 @@ bool fatDrive::FileUnlink(char * name) {
 	return true;
 }
 
-bool fatDrive::FindFirst(char *_dir, DOS_DTA &dta,bool /*fcb_findfirst*/) {
+bool fatDrive::FindFirst(const char *_dir, DOS_DTA &dta,bool /*fcb_findfirst*/) {
 	direntry dummyClust;
 	Bit8u attr;char pattern[DOS_NAMELENGTH_ASCII];
 	dta.GetSearchParams(attr,pattern);
@@ -927,6 +958,10 @@ nextfile:
 	dirPos++;
 	dta.SetDirID(dirPos);
 
+    //--Added 2011-07-23 by Alun Bestor to correct byte order for PowerPC endianness.
+    sectbuf[entryoffset] = boxer_FATDirEntryLittleToHost(sectbuf[entryoffset]);
+    //--End of modifications
+    
 	/* Deleted file entry */
 	if (sectbuf[entryoffset].entryname[0] == 0xe5) goto nextfile;
 
@@ -966,7 +1001,7 @@ bool fatDrive::FindNext(DOS_DTA &dta) {
 	return FindNextInternal(dta.GetDirIDCluster(), dta, &dummyClust);
 }
 
-bool fatDrive::GetFileAttr(char *name, Bit16u *attr) {
+bool fatDrive::GetFileAttr(const char *name, Bit16u *attr) {
 	direntry fileEntry;
 	Bit32u dirClust, subEntry;
 	if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) {
@@ -1018,7 +1053,10 @@ bool fatDrive::directoryBrowse(Bit32u dirClustNumber, direntry *useEntry, Bit32s
 			loadedDisk->Read_AbsoluteSector(tmpsector,sectbuf);
 		}
 		dirPos++;
-
+        
+        //--Added 2011-07-23 by Alun Bestor to correct byte order for PowerPC endianness.
+        sectbuf[entryoffset] = boxer_FATDirEntryLittleToHost(sectbuf[entryoffset]);
+        //--End of modifications
 
 		/* End of directory list */
 		if (sectbuf[entryoffset].entryname[0] == 0x00) return false;
@@ -1053,13 +1091,17 @@ bool fatDrive::directoryChange(Bit32u dirClustNumber, direntry *useEntry, Bit32s
 		}
 		dirPos++;
 
-
 		/* End of directory list */
 		if (sectbuf[entryoffset].entryname[0] == 0x00) return false;
 		--entNum;
 	}
 	if(tmpsector != 0) {
         memcpy(&sectbuf[entryoffset], useEntry, sizeof(direntry));
+        
+        //--Added 2011-07-23 by Alun Bestor to correct byte order for PowerPC endianness.
+        sectbuf[entryoffset] = boxer_FATDirEntryHostToLittle(sectbuf[entryoffset]);
+        //--End of modifications
+        
 		loadedDisk->Write_AbsoluteSector(tmpsector, sectbuf);
         return true;
 	} else {
@@ -1100,7 +1142,13 @@ bool fatDrive::addDirectoryEntry(Bit32u dirClustNumber, direntry useEntry) {
 
 		/* Deleted file entry or end of directory list */
 		if ((sectbuf[entryoffset].entryname[0] == 0xe5) || (sectbuf[entryoffset].entryname[0] == 0x00)) {
+            
 			sectbuf[entryoffset] = useEntry;
+            
+            //--Added 2011-07-23 by Alun Bestor to correct byte order coming from PowerPC endianness.
+            sectbuf[entryoffset] = boxer_FATDirEntryHostToLittle(sectbuf[entryoffset]);
+            //--End of modifications
+            
 			loadedDisk->Write_AbsoluteSector(tmpsector,sectbuf);
 			break;
 		}
@@ -1120,7 +1168,7 @@ void fatDrive::zeroOutCluster(Bit32u clustNumber) {
 	}
 }
 
-bool fatDrive::MakeDir(char *dir) {
+bool fatDrive::MakeDir(const char *dir) {
 	Bit32u dummyClust, dirClust;
 	direntry tmpentry;
 	char dirName[DOS_NAMELENGTH_ASCII];
@@ -1172,7 +1220,7 @@ bool fatDrive::MakeDir(char *dir) {
 	return true;
 }
 
-bool fatDrive::RemoveDir(char *dir) {
+bool fatDrive::RemoveDir(const char *dir) {
 	Bit32u dummyClust, dirClust;
 	direntry tmpentry;
 	char dirName[DOS_NAMELENGTH_ASCII];
@@ -1225,7 +1273,7 @@ bool fatDrive::RemoveDir(char *dir) {
 	return true;
 }
 
-bool fatDrive::Rename(char * oldname, char * newname) {
+bool fatDrive::Rename(const char * oldname, const char * newname) {
 	direntry fileEntry1;
 	Bit32u dirClust1, subEntry1;
 	if(!getFileDirEntry(oldname, &fileEntry1, &dirClust1, &subEntry1)) return false;
@@ -1264,7 +1312,7 @@ bool fatDrive::Rename(char * oldname, char * newname) {
 	return false;
 }
 
-bool fatDrive::TestDir(char *dir) {
+bool fatDrive::TestDir(const char *dir) {
 	Bit32u dummyClust;
 	return getDirClustNum(dir, &dummyClust, false);
 }

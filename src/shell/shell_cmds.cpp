@@ -31,6 +31,7 @@
 #include <vector>
 #include <string>
 
+
 static SHELL_Cmd cmd_list[]={
 {	"DIR",		0,			&DOS_Shell::CMD_DIR,		"SHELL_CMD_DIR_HELP"},
 {	"CHDIR",	1,			&DOS_Shell::CMD_CHDIR,		"SHELL_CMD_CHDIR_HELP"},
@@ -140,6 +141,13 @@ void DOS_Shell::DoCommand(char * line) {
 	}
 	*cmd_write=0;
 	if (strlen(cmd_buffer)==0) return;
+	
+	//--Added 2009-02-20 by Alun Bestor to hook into DOS shell for our own nefarious purposes
+	//We do this here to preempt whatever DOSBox would like to do
+	if (!boxer_shellShouldRunCommand(this, cmd_buffer, line))
+        return;
+	//--End of modifications
+	
 /* Check the internal list */
 	Bit32u cmd_index=0;
 	while (cmd_list[cmd_index].name) {
@@ -154,6 +162,18 @@ void DOS_Shell::DoCommand(char * line) {
 	if(CheckConfig(cmd_buffer,line)) return;
 	WriteOut(MSG_Get("SHELL_EXECUTE_ILLEGAL_COMMAND"),cmd_buffer);
 }
+
+//--Added 2009-02-23 by Alun Bestor to allow commands that expect arguments to display their help text when no arguments were provided
+#define HELP_IF_NO_ARGS(command) \
+	if (ScanCMDBool(args,"?") || !strlen(args)) { \
+		WriteOut(MSG_Get("SHELL_CMD_" command "_HELP")); \
+		const char* long_m = MSG_Get("SHELL_CMD_" command "_HELP_LONG"); \
+		WriteOut("\n"); \
+		if(strcmp("Message not Found!\n",long_m)) WriteOut(long_m); \
+		else WriteOut(command "\n"); \
+		return; \
+	}
+//--End of modifications
 
 #define HELP(command) \
 	if (ScanCMDBool(args,"?")) { \
@@ -172,16 +192,25 @@ void DOS_Shell::CMD_CLS(char * args) {
 }
 
 void DOS_Shell::CMD_DELETE(char * args) {
-	HELP("DELETE");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("DELETE");
+	HELP_IF_NO_ARGS("DELETE");
+	//--End of modifications
+	
 	/* Command uses dta so set it to our internal dta */
 	RealPt save_dta=dos.dta();
 	dos.dta(dos.tables.tempdta);
 
+	//--Disabled 2009-02-24 by Alun Bestor: bailing out upon encountering unrecognised switches was preventing the use of unix/style/paths
+	/*
 	char * rem=ScanCMDRemain(args);
 	if (rem) {
 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
 		return;
 	}
+	*/
+	//--End of modification
+
 	/* If delete accept switches mind the space infront of them. See the dir /p code */ 
 
 	char full[DOS_PATHLENGTH];
@@ -227,7 +256,11 @@ void DOS_Shell::CMD_HELP(char * args){
 }
 
 void DOS_Shell::CMD_RENAME(char * args){
-	HELP("RENAME");
+	//--Modified 2010-12-29 by Alun Bestor to show help text when no arguments were given
+	//HELP("RENAME");
+	HELP_IF_NO_ARGS("RENAME");
+	//--End of modifications
+	
 	StripSpaces(args);
 	if(!*args) {SyntaxError();return;}
 	if((strchr(args,'*')!=NULL) || (strchr(args,'?')!=NULL) ) { WriteOut(MSG_Get("SHELL_CMD_NO_WILD"));return;}
@@ -297,15 +330,38 @@ void DOS_Shell::CMD_EXIT(char * args) {
 }
 
 void DOS_Shell::CMD_CHDIR(char * args) {
+	//--Note 2009-02-24 by Alun Bestor: I would like to add implicit help for CD, but there's the possibility that batchfiles would
+	//send the output of CD to a file or env variable...
 	HELP("CHDIR");
+	
 	StripSpaces(args);
 	if (!*args) {
 		Bit8u drive=DOS_GetDefaultDrive()+'A';
 		char dir[DOS_PATHLENGTH];
 		DOS_GetCurrentDir(0,dir);
 		WriteOut("%c:\\%s\n",drive,dir);
-	} else if(strlen(args) == 2 && args[1]==':') {
-		WriteOut(MSG_Get("SHELL_CMD_CHDIR_HINT"),toupper(*reinterpret_cast<unsigned char*>(&args[0])));
+	}
+	
+	//--Modified 2009-02-24 by Alun Bestor: instead of telling the user they can just type C: why don't you do what they wanted to do in the first place
+	//Also tweaked it so that if the path is prefixed with a drive letter, we switch to that drive first
+	else if(strlen(args) >= 2 && args[1]==':') {
+	//else if(strlen(args) == 2 && args[1]==':') {
+		//WriteOut(MSG_Get("SHELL_CMD_CHDIR_HINT"),toupper(*reinterpret_cast<unsigned char*>(&args[0])));
+		
+		//Extract the drive letter and change to it
+		std::string driveLetter(args, 2);
+		DoCommand(const_cast<char*>(driveLetter.c_str()));
+
+		//If there's more path on the end, run CD again with that as the arguments
+		if (strlen(args) > 2)
+		{
+			std::string path(args);
+			path = path.substr(2);
+			CMD_CHDIR(const_cast<char*>(path.c_str()));
+		}
+		else return;
+	//--End of modifications
+		
 	} else 	if (!DOS_ChangeDir(args)) {
 		/* Changedir failed. Check if the filename is longer then 8 and/or contains spaces */
 	   
@@ -341,26 +397,46 @@ void DOS_Shell::CMD_CHDIR(char * args) {
 }
 
 void DOS_Shell::CMD_MKDIR(char * args) {
-	HELP("MKDIR");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("MKDIR");
+	HELP_IF_NO_ARGS("MKDIR");
+	//--End of modifications
+	
 	StripSpaces(args);
+	
+	//--Disabled 2009-02-24 by Alun Bestor: bailing out upon encountering unrecognised switches was preventing the use of unix/style/paths
+	/*
 	char * rem=ScanCMDRemain(args);
 	if (rem) {
 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
 		return;
 	}
+	*/
+	//--End of modifications
+	
 	if (!DOS_MakeDir(args)) {
 		WriteOut(MSG_Get("SHELL_CMD_MKDIR_ERROR"),args);
 	}
 }
 
 void DOS_Shell::CMD_RMDIR(char * args) {
-	HELP("RMDIR");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("RMDIR");
+	HELP_IF_NO_ARGS("RMDIR");
+	//--End of modifications
+	
 	StripSpaces(args);
+	
+	//--Disabled 2009-02-24 by Alun Bestor: bailing out upon encountering unrecognised switches was preventing the use of unix/style/paths
+	/*
 	char * rem=ScanCMDRemain(args);
 	if (rem) {
 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
 		return;
 	}
+	*/
+	//--End of modifications
+	
 	if (!DOS_RemoveDir(args)) {
 		WriteOut(MSG_Get("SHELL_CMD_RMDIR_ERROR"),args);
 	}
@@ -411,11 +487,17 @@ void DOS_Shell::CMD_DIR(char * args) {
 	}
 	bool optB=ScanCMDBool(args,"B");
 	bool optAD=ScanCMDBool(args,"AD");
+
+	//--Disabled 2009-02-24 by Alun Bestor: bailing out upon encountering unrecognised switches was preventing the use of unix/style/paths
+	/*	
 	char * rem=ScanCMDRemain(args);
 	if (rem) {
 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
 		return;
 	}
+	*/
+	//--End of modifications
+	
 	Bit32u byte_count,file_count,dir_count;
 	Bitu w_count=0;
 	Bitu p_count=0;
@@ -430,6 +512,10 @@ void DOS_Shell::CMD_DIR(char * args) {
 	} else {
 		switch (args[argLen-1])
 		{
+		//--Added 2009-02-24 by Alun Bestor to support /Unix/delimited/paths
+		case '/':
+		//--End of modifications
+		
 		case '\\':	// handle \, C:\, etc.
 		case ':' :	// handle C:, etc.
 			strcat(args,"*.*");
@@ -555,7 +641,11 @@ struct copysource {
 
 
 void DOS_Shell::CMD_COPY(char * args) {
-	HELP("COPY");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("COPY");
+	HELP_IF_NO_ARGS("COPY");
+	//--End of modifications
+	
 	static char defaulttarget[] = ".";
 	StripSpaces(args);
 	/* Command uses dta so set it to our internal dta */
@@ -572,12 +662,17 @@ void DOS_Shell::CMD_COPY(char * args) {
 	ScanCMDBool(args,"Y");
 	ScanCMDBool(args,"-Y");
 
+	//--Disabled 2009-02-24 by Alun Bestor: bailing out upon encountering unrecognised switches was preventing the use of unix/style/paths
+	/*
 	char * rem=ScanCMDRemain(args);
 	if (rem) {
 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
 		dos.dta(save_dta);
 		return;
 	}
+	*/
+	//--End of modifications
+	
 	// Gather all sources (extension to copy more then 1 file specified at commandline)
 	// Concatating files go as follows: All parts except for the last bear the concat flag.
 	// This construction allows them to be counted (only the non concat set)
@@ -774,7 +869,11 @@ void DOS_Shell::CMD_SET(char * args) {
 }
 
 void DOS_Shell::CMD_IF(char * args) {
-	HELP("IF");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("IF");
+	HELP_IF_NO_ARGS("IF");
+	//--End of modifications
+	
 	StripSpaces(args,'=');
 	bool has_not=false;
 
@@ -861,7 +960,11 @@ void DOS_Shell::CMD_IF(char * args) {
 }
 
 void DOS_Shell::CMD_GOTO(char * args) {
-	HELP("GOTO");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("GOTO");
+	HELP_IF_NO_ARGS("GOTO");
+	//--End of modifications
+	
 	StripSpaces(args);
 	if (!bf) return;
 	if (*args &&(*args==':')) args++;
@@ -888,8 +991,13 @@ void DOS_Shell::CMD_SHIFT(char * args ) {
 }
 
 void DOS_Shell::CMD_TYPE(char * args) {
-	HELP("TYPE");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("TYPE");
+	HELP_IF_NO_ARGS("TYPE");
+	//--End of modifications
+	
 	StripSpaces(args);
+	
 	if (!*args) {
 		WriteOut(MSG_Get("SHELL_SYNTAXERROR"));
 		return;
@@ -924,7 +1032,11 @@ void DOS_Shell::CMD_PAUSE(char * args){
 }
 
 void DOS_Shell::CMD_CALL(char * args){
-	HELP("CALL");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("CALL");
+	HELP_IF_NO_ARGS("CALL");
+	//--End of modifications
+	
 	this->call=true; /* else the old batchfile will be closed first */
 	this->ParseLine(args);
 	this->call=false;
@@ -934,7 +1046,11 @@ void DOS_Shell::CMD_SUBST (char * args) {
 /* If more that one type can be substed think of something else 
  * E.g. make basedir member dos_drive instead of localdrive
  */
-	HELP("SUBST");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("SUBST");
+	HELP_IF_NO_ARGS("SUBST");
+	//--End of modifications
+	
 	localDrive* ldp=0;
 	char mountstring[DOS_PATHLENGTH+CROSS_LEN+20];
 	char temp_str[2] = { 0,0 };
@@ -987,7 +1103,11 @@ void DOS_Shell::CMD_SUBST (char * args) {
 }
 
 void DOS_Shell::CMD_LOADHIGH(char *args){
-	HELP("LOADHIGH");
+	//--Modified 2009-02-24 by Alun Bestor to show help text when no arguments were given
+	//HELP("LOADHIGH");
+	HELP_IF_NO_ARGS("LOADHIGH");
+	//--End of modifications
+	
 	Bit16u umb_start=dos_infoblock.GetStartOfUMBChain();
 	Bit8u umb_flag=dos_infoblock.GetUMBChainState();
 	Bit8u old_memstrat=(Bit8u)(DOS_GetMemAllocStrategy()&0xff);
@@ -1012,10 +1132,16 @@ void DOS_Shell::CMD_CHOICE(char * args){
 		char *last = strchr(args,0);
 		StripSpaces(args);
 		rem = ScanCMDRemain(args);
+		
+		//--Disabled 2009-02-24 by Alun Bestor: bailing out upon encountering unrecognised switches was preventing the use of unix/style/paths
+		/*
 		if (rem && *rem && (tolower(rem[1]) != 'c')) {
 			WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
 			return;
 		}
+		*/
+		//--End of modifications
+		
 		if (args == rem) args = strchr(rem,0)+1;
 		if (rem) rem += 2;
 		if(rem && rem[0]==':') rem++; /* optional : after /c */

@@ -84,6 +84,13 @@ public:
 	void switch_foreign_layout();
 	const char* get_layout_name();
 	const char* main_language_code();
+    
+    //--Added 2012-02-25 by Alun Bestor to support limited on-the-fly layout switching
+    bool foreign_layout_active();
+    bool is_US_layout();
+    const char *real_layout_name();
+    bool supports_language_code(const char *code);
+    //--End of modifications
 
 
 private:
@@ -749,7 +756,9 @@ Bitu keyboard_layout::read_codepage_file(const char* codepage_file_name, Bit32s 
 		}
 	}
 
-	static Bit8u cpi_buf[65536];
+	//--Modified 2011-06-20 by Alun Bestor: there is no reason in the world for this to be static
+	/* static */Bit8u cpi_buf[65536];
+	//--End of modifications
 	Bit32u cpi_buf_size=0,size_of_cpxdata=0;;
 	bool upxfound=false;
 	Bit16u found_at_pos=5;
@@ -869,6 +878,11 @@ Bitu keyboard_layout::read_codepage_file(const char* codepage_file_name, Bit32s 
 
 
 	start_pos=host_readd(&cpi_buf[0x13]);
+	
+	//--Added 2011-06-20 by Alun Bestor as a sanity check, preventing crashes in the event that a codepage file cannot be parsed
+	if (start_pos > cpi_buf_size) return KEYB_INVALIDCPFILE;
+	//--End of modifications
+	
 	number_of_codepages=host_readw(&cpi_buf[start_pos]);
 	start_pos+=4;
 
@@ -1025,6 +1039,27 @@ const char* keyboard_layout::main_language_code() {
 	return NULL;
 }
 
+//--Added 2012-02-25 by Alun Bestor to support limited on-the-fly layout switching
+bool keyboard_layout::supports_language_code(const char *code) {
+    Bitu code_len = strlen(code);
+    for (Bitu i=0; i<language_code_count; i++) {
+        if (!strncasecmp(code,language_codes[i],code_len)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const char* keyboard_layout::real_layout_name() {
+    return current_keyboard_file_name;
+}
+
+bool keyboard_layout::is_US_layout() {
+    return !strncasecmp(current_keyboard_file_name,"US", 2) || !strncasecmp(current_keyboard_file_name, "none", 4);
+}
+
+bool keyboard_layout::foreign_layout_active() { return use_foreign_layout; }
+//--End of modifications
 
 static keyboard_layout* loaded_layout=NULL;
 
@@ -1081,6 +1116,55 @@ const char* DOS_GetLoadedLayout(void) {
 	return NULL;
 }
 
+//--Added 2012-02-24 by Alun Bestor to let Boxer check if any layout has been loaded.
+
+const char * boxer_keyboardLayoutName()
+{
+    if (loaded_layout)
+        return loaded_layout->real_layout_name();
+    else
+        return NULL;
+}
+bool boxer_keyboardLayoutLoaded()
+{
+    return (loaded_layout != NULL);
+}
+
+bool boxer_keyboardLayoutSupported(const char *code)
+{
+    if (loaded_layout)
+    {
+        //If the current layout supports the specified language code without switching anything, yippee
+        if (loaded_layout->supports_language_code(code)) return true;
+    
+        //If we can safely swap layouts without changing codepages, yippee too
+        Bitu detectedCodepage = loaded_layout->extract_codepage(code);
+        if (detectedCodepage == dos.loaded_codepage) return true;
+    }
+    return false;
+}
+
+bool boxer_keyboardLayoutActive()
+{
+    if (loaded_layout)
+        return loaded_layout->foreign_layout_active();
+    else return false;
+}
+
+void boxer_setKeyboardLayoutActive(bool active)
+{
+    if (loaded_layout)
+    {
+        //Force-disable US layouts,
+        //to match how switch_keyboard_layout() behaves.
+        if (loaded_layout->is_US_layout()) active = false;
+        
+        if (boxer_keyboardLayoutActive() != active)
+            loaded_layout->switch_foreign_layout();
+    }
+}
+//--End of modifications
+
 
 class DOS_KeyboardLayout: public Module_base {
 public:
@@ -1090,7 +1174,7 @@ public:
 		loaded_layout=new keyboard_layout();
 
 		const char * layoutname=section->Get_string("keyboardlayout");
-
+        
 		Bits wants_dos_codepage = -1;
 		if (!strncmp(layoutname,"auto",4)) {
 #if defined (WIN32)
@@ -1237,8 +1321,14 @@ public:
 					break;
 			}
 #endif
+            
+            //--Added 2009-02-23 by Alun Bestor: if auto layout was specified, ask Boxer to provide a layout
+            const char *preferredLayout = boxer_preferredKeyboardLayout();
+            if (preferredLayout)
+                layoutname = preferredLayout;
+            //--End of modifications
 		}
-
+		
 		bool extract_codepage = true;
 		if (wants_dos_codepage>0) {
 			if ((loaded_layout->read_codepage_file("auto", (Bitu)wants_dos_codepage)) == KEYB_NOERROR) {
@@ -1251,7 +1341,7 @@ public:
 			Bitu req_codepage = loaded_layout->extract_codepage(layoutname);
 			loaded_layout->read_codepage_file("auto", req_codepage);
 		}
-
+        
 /*		if (strncmp(layoutname,"auto",4) && strncmp(layoutname,"none",4)) {
 			LOG_MSG("Loading DOS keyboard layout %s ...",layoutname);
 		} */
@@ -1265,6 +1355,13 @@ public:
 				LOG_MSG("DOS keyboard layout loaded with main language code %s for layout %s",lcode,layoutname);
 			}
 		}
+        
+        //--Added 2012-05-21 by Alun Bestor to fix US-858 layout loading up with keyboard remapping enabled.
+        if (loaded_layout->is_US_layout() && loaded_layout->foreign_layout_active())
+        {
+            loaded_layout->switch_foreign_layout();
+        }
+        //--End of modifications
 	}
 
 	~DOS_KeyboardLayout(){

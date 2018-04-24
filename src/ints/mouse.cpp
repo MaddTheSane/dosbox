@@ -34,6 +34,8 @@
 #include "bios.h"
 #include "dos_inc.h"
 
+
+
 static Bitu call_int33,call_int74,int74_ret_callback,call_mouse_bd;
 static Bit16u ps2cbseg,ps2cbofs;
 static bool useps2callback,ps2callbackinit;
@@ -199,7 +201,7 @@ Bitu PS2_Handler(void) {
 #define MOUSE_RIGHT_RELEASED 16
 #define MOUSE_MIDDLE_PRESSED 32
 #define MOUSE_MIDDLE_RELEASED 64
-#define MOUSE_DELAY 5.0
+#define MOUSE_DELAY 5.0f
 
 void MOUSE_Limit_Events(Bitu /*val*/) {
 	mouse.timer_in_progress = false;
@@ -487,12 +489,22 @@ void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
 	}
 	Mouse_AddEvent(MOUSE_HAS_MOVED);
 	DrawCursor();
+	
+	//--Added 2010-05-29: let Boxer know that the program moved the mouse cursor,
+	//and feed it the new relative mouse coordinates
+	boxer_mouseMovedToPoint(mouse.x / mouse.max_x, mouse.y / mouse.max_y);
+	//--End of modifications
 }
 
 void Mouse_CursorSet(float x,float y) {
 	mouse.x=x;
 	mouse.y=y;
 	DrawCursor();
+	
+	//--Added 2010-05-29: let Boxer know that the program moved the mouse cursor,
+	//and feed it the new relative mouse coordinates
+	boxer_mouseMovedToPoint(mouse.x / mouse.max_x, mouse.y / mouse.max_y);
+	//--End of modifications
 }
 
 void Mouse_ButtonPressed(Bit8u button) {
@@ -716,7 +728,14 @@ static Bitu INT33_Handler(void) {
 		if ((Bit16s)reg_dx >= mouse.max_y) mouse.y = static_cast<float>(mouse.max_y);
 		else if (mouse.min_y >= (Bit16s)reg_dx) mouse.y = static_cast<float>(mouse.min_y); 
 		else if ((Bit16s)reg_dx != POS_Y) mouse.y = static_cast<float>(reg_dx);
+		
 		DrawCursor();
+		
+		//--Added 2010-05-29: let Boxer know that the program moved the mouse cursor,
+		//and feed it the new relative mouse coordinates
+		boxer_mouseMovedToPoint(mouse.x / mouse.max_x, mouse.y / mouse.max_y);
+		//--End of modifications
+			
 		break;
 	case 0x05:	/* Return Button Press Data */
 		{

@@ -20,7 +20,10 @@
 #define DOSBOX_TIMER_H
 
 /* underlying clock rate in HZ */
-#include <SDL.h>
+//--Modified 2009-02-26 by Alun Bestor to change from <SDL.h>, which was the wrong notation for a locally-included file
+//#include "SDL.h"
+#include "SDL.h"
+//--End of modifications
 
 #define PIT_TICK_RATE 1193182
 

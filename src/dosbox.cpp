@@ -42,6 +42,9 @@
 #include "mapper.h"
 #include "ints/int10.h"
 #include "render.h"
+//--Added 2012-10-19 by Alun Bestor to allow parallel port emulation
+#include "parport.h"
+//--End of modifications
 
 Config * control;
 MachineType machine;
@@ -128,6 +131,10 @@ bool ticksLocked;
 static Bitu Normal_Loop(void) {
 	Bits ret;
 	while (1) {
+		//--Added 2009-12-27 by Alun Bestor to short-circuit the emulation loop when we need to
+		if (!boxer_runLoopShouldContinue()) return 1;
+		//--End of modifications
+		
 		if (PIC_RunQueue()) {
 			ret=(*cpudecoder)();
 			if (GCC_UNLIKELY(ret<0)) return 1;
@@ -140,6 +147,9 @@ static Bitu Normal_Loop(void) {
 #endif
 		} else {
 			GFX_Events();
+            //--Check again at this point in case our own events have cancelled the emulation.
+            if (!boxer_runLoopShouldContinue()) return 1;
+            //--End of modifications
 			if (ticksRemain>0) {
 				TIMER_AddTick();
 				ticksRemain--;
@@ -241,7 +251,14 @@ void DOSBOX_SetNormalLoop() {
 void DOSBOX_RunMachine(void){
 	Bitu ret;
 	do {
+        //--Modified 2011-09-25 by Alun Bestor to bracket iterations of the run loop
+        //with our own callbacks. We pass along the contextInfo parameter so that
+        //Boxer knows which iteration of the runloop is running (in case of nested runloops).
+        void *contextInfo;
+        boxer_runLoopWillStartWithContextInfo(&contextInfo);
 		ret=(*loop)();
+        boxer_runLoopDidFinishWithContextInfo(contextInfo);
+        //--End of modifications.
 	} while (!ret);
 }
 
@@ -467,7 +484,7 @@ void DOSBOX_Init(void) {
 	
 	const char* mputypes[] = { "intelligent", "uart", "none",0};
 	// FIXME: add some way to offer the actually available choices.
-	const char *devices[] = { "default", "win32", "alsa", "oss", "coreaudio", "coremidi","none", 0};
+	const char *devices[] = { "default", "win32", "alsa", "oss", "coreaudio", "coremidi", "mt32", "none", 0};
 	Pstring = secprop->Add_string("mpu401",Property::Changeable::WhenIdle,"intelligent");
 	Pstring->Set_values(mputypes);
 	Pstring->Set_help("Type of MPU-401 to emulate.");
@@ -478,8 +495,57 @@ void DOSBOX_Init(void) {
 
 	Pstring = secprop->Add_string("midiconfig",Property::Changeable::WhenIdle,"");
 	Pstring->Set_help("Special configuration options for the device driver. This is usually the id of the device you want to use.\n"
+	                  "  or in the case of coreaudio, you can specify a soundfont here.\n"
+	                  "  When using a Roland MT-32 rev. 0 as midi output device, some games may require a delay in order to prevent 'buffer overflow' issues.\n"
+	                  "  In that case, add 'delaysysex', for example: midiconfig=2 delaysysex\n"
 	                  "  See the README/Manual for more details.");
 
+	const char *mt32ReverseStereo[] = {"off", "on",0};
+	Pstring = secprop->Add_string("mt32ReverseStereo",Property::Changeable::WhenIdle,"off");
+	Pstring->Set_values(mt32ReverseStereo);
+	Pstring->Set_help("Reverse stereo channels for MT-32 output");
+    
+	const char *mt32DACModes[] = {"0", "1", "2", "3", "auto",0};
+	Pstring = secprop->Add_string("mt32DAC",Property::Changeable::WhenIdle,"auto");
+	Pstring->Set_values(mt32DACModes);
+	Pstring->Set_help("MT-32 DAC input mode\n"
+                      "Nice = 0 - default\n"
+                      "Produces samples at double the volume, without tricks.\n"
+                      "Higher quality than the real devices\n\n"
+                      
+                      "Pure = 1\n"
+                      "Produces samples that exactly match the bits output from the emulated LA32.\n"
+                      "Nicer overdrive characteristics than the DAC hacks (it simply clips samples within range)\n"
+                      "Much less likely to overdrive than any other mode.\n"
+                      "Half the volume of any of the other modes, meaning its volume relative to the reverb\n"
+                      "output when mixed together directly will sound wrong. So, reverb level must be lowered.\n"
+                      "Perfect for developers while debugging :)\n\n"
+                      
+                      "GENERATION1 = 2\n"
+                      "Re-orders the LA32 output bits as in early generation MT-32s (according to Wikipedia).\n"
+                      "Bit order at DAC (where each number represents the original LA32 output bit number, and XX means the bit is always low):\n"
+                      "15 13 12 11 10 09 08 07 06 05 04 03 02 01 00 XX\n\n"
+                      
+                      "GENERATION2 = 3\n"
+                      "Re-orders the LA32 output bits as in later geneerations (personally confirmed on my CM-32L - KG).\n"
+                      "Bit order at DAC (where each number represents the original LA32 output bit number):\n"
+                      "15 13 12 11 10 09 08 07 06 05 04 03 02 01 00 14\n\n");
+	const char *mt32reverbModes[] = {"0", "1", "2", "3", "auto",0};
+	Pstring = secprop->Add_string("mt32reverb.mode",Property::Changeable::WhenIdle,"auto");
+	Pstring->Set_values(mt32reverbModes);
+	Pstring->Set_help("MT-32 reverb mode");
+    
+	const char *mt32reverbTimes[] = {"0", "1", "2", "3", "4", "5", "6", "7",0};
+	Pint = secprop->Add_int("mt32reverb.time",Property::Changeable::WhenIdle,5);
+	Pint->Set_values(mt32reverbTimes);
+	Pint->Set_help("MT-32 reverb time"); 
+    
+	const char *mt32reverbLevels[] = {"0", "1", "2", "3", "4", "5", "6", "7",0};
+	Pint = secprop->Add_int("mt32reverb.level",Property::Changeable::WhenIdle,3);
+	Pint->Set_values(mt32reverbLevels);
+	Pint->Set_help("MT-32 reverb level");
+    
+    
 #if C_DEBUG
 	secprop=control->AddSection_prop("debug",&DEBUG_Init);
 #endif
@@ -645,8 +711,42 @@ void DOSBOX_Init(void) {
 	Pstring->Set_values(serials);
 	Pstring = Pmulti_remain->GetSection()->Add_string("parameters",Property::Changeable::WhenIdle,"");
 	Pmulti_remain->Set_help("see serial1");
-
-
+    
+    //--Added 2012-10-19 by Alun Bestor to allow parallel port emulation
+	// parallel ports
+	secprop=control->AddSection_prop("parallel",&PARALLEL_Init,true);
+	Pstring = secprop->Add_string("parallel1",Property::Changeable::WhenIdle,"disabled");
+	Pstring->Set_help(
+                      "parallel1-3 -- set type of device connected to lpt port.\n"
+                      "Can be:\n"
+                      "	reallpt (direct parallel port passthrough using Porttalk),\n"
+                      "	file (records data to a file or passes it to a device),\n"
+                      "	printer (virtual dot-matrix printer, see [printer] section)\n"
+                      "Additional parameters must be in the same line in the form of\n"
+                      "parameter:value.\n"
+                      "  for reallpt:\n"
+                      "  Windows:\n"
+                      "    realbase (the base address of your real parallel port).\n"
+                      "      Default: 378\n"
+                      "    ecpbase (base address of the ECP registers, optional).\n"
+                      "  Linux: realport (the parallel port device i.e. /dev/parport0).\n"
+                      "  for file: \n"
+                      "    dev:<devname> (i.e. dev:lpt1) to forward data to a device,\n"
+                      "    or append:<file> appends data to the specified file.\n"
+                      "    Without the above parameters data is written to files in the capture dir.\n"
+                      "    Additional parameters: timeout:<milliseconds> = how long to wait before\n"
+                      "    closing the file on inactivity (default:500), addFF to add a formfeed when\n"
+                      "    closing, addLF to add a linefeed if the app doesn't, cp:<codepage number>\n"
+                      "    to perform codepage translation, i.e. cp:437\n"
+                      "  for printer:\n"
+                      "    printer still has it's own configuration section above."
+                      );
+	Pstring = secprop->Add_string("parallel2",Property::Changeable::WhenIdle,"disabled");
+	Pstring->Set_help("see parallel1");
+	Pstring = secprop->Add_string("parallel3",Property::Changeable::WhenIdle,"disabled");
+	Pstring->Set_help("see parallel1");
+//--End of modifications
+    
 	/* All the DOS Related stuff, which will eventually start up in the shell */
 	secprop=control->AddSection_prop("dos",&DOS_Init,false);//done
 	secprop->AddInitFunction(&XMS_Init,true);//done

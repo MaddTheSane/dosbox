@@ -29,10 +29,15 @@
 #include "support.h"
 
 
+
 Bitu call_shellstop;
 /* Larger scope so shell_del autoexec can use it to
  * remove things from the environment */
-Program * first_shell = 0; 
+Program * first_shell = 0;
+
+//--Added 2013-09-22 by Alun Bestor to track the currently active shell
+DOS_Shell *currentShell = NULL;
+//--End of modifications
 
 static Bitu shellstop_handler(void) {
 	return CBRET_STOP;
@@ -284,9 +289,17 @@ void DOS_Shell::RunInternal(void)
 }
 
 void DOS_Shell::Run(void) {
+    //--Added 2013-09-22 by Alun Bestor to keep a record of the currently-processing shell
+    boxer_shellWillStart(this);
+    DOS_Shell *previousShell = currentShell;
+    currentShell = this;
+    //--End of modifications
+    
 	char input_line[CMD_MAXLINE] = {0};
 	std::string line;
 	if (cmd->FindStringRemain("/C",line)) {
+        
+        
 		strcpy(input_line,line.c_str());
 		char* sep = strpbrk(input_line,"\r\n"); //GTA installer
 		if (sep) *sep = 0;
@@ -294,25 +307,47 @@ void DOS_Shell::Run(void) {
 		temp.echo = echo;
 		temp.ParseLine(input_line);		//for *.exe *.com  |*.bat creates the bf needed by runinternal;
 		temp.RunInternal();				// exits when no bf is found.
+        
+        //--Added 2013-09-22 by Alun Bestor to keep a record of the currently-processing shell
+        currentShell = previousShell;
+        boxer_shellDidFinish(this);
+        //--End of modifications
+        
 		return;
 	}
+    
 	/* Start a normal shell and check for a first command init */
-	WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),VERSION);
-#if C_DEBUG
-	WriteOut(MSG_Get("SHELL_STARTUP_DEBUG"));
-#endif
-	if (machine == MCH_CGA) WriteOut(MSG_Get("SHELL_STARTUP_CGA"));
-	if (machine == MCH_HERC) WriteOut(MSG_Get("SHELL_STARTUP_HERC"));
-	WriteOut(MSG_Get("SHELL_STARTUP_END"));
-
+    //--Modified 2012-08-19 by Alun Bestor to allow selective overriding of the startup messages.
+    if (boxer_shellShouldDisplayStartupMessages(this))
+    {
+        WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),VERSION);
+    #if C_DEBUG
+        WriteOut(MSG_Get("SHELL_STARTUP_DEBUG"));
+    #endif
+        if (machine == MCH_CGA) WriteOut(MSG_Get("SHELL_STARTUP_CGA"));
+        if (machine == MCH_HERC) WriteOut(MSG_Get("SHELL_STARTUP_HERC"));
+        WriteOut(MSG_Get("SHELL_STARTUP_END"));
+    }
+    //--End of modifications
+    
 	if (cmd->FindString("/INIT",line,true)) {
+		//--Added 2009-12-13 by Alun Bestor to let Boxer monitor the autoexec process
+		boxer_shellWillStartAutoexec(this);
+		//--End of modifications
+		
 		strcpy(input_line,line.c_str());
 		line.erase();
 		ParseLine(input_line);
 	}
 	do {
-		if (bf){
-			if(bf->ReadLine(input_line)) {
+        //--Added 2012-08-19 by Alun Bestor to let Boxer insert its own commands into batch processing.
+        if (boxer_hasPendingCommandsForShell(this))
+        {
+            boxer_executeNextPendingCommandForShell(this);
+        }
+		else if (bf){
+        //--End of modifications
+            if(bf->ReadLine(input_line)) {
 				if (echo) {
 					if (input_line[0]!='@') {
 						ShowPrompt();
@@ -324,12 +359,27 @@ void DOS_Shell::Run(void) {
 				if (echo) WriteOut("\n");
 			}
 		} else {
+            //--Added 2009-11-29 by Alun Bestor as a hook for detecting when control has returned to the DOS prompt. 
+            boxer_didReturnToShell(this);
+            //--End of modifications
+            
 			if (echo) ShowPrompt();
 			InputCommand(input_line);
-			ParseLine(input_line);
-			if (echo && !bf) WriteOut_NoParsing("\n");
+            
+            //--Added 2012-08-19 by Alun Bestor to let Boxer interrupt the command input with its own commands.
+            if (boxer_shellShouldContinue(this) && !boxer_hasPendingCommandsForShell(this))
+            {
+            //--End of modifications
+                ParseLine(input_line);
+                if (echo && !bf) WriteOut_NoParsing("\n");
+            }
 		}
-	} while (!exit);
+	} while (boxer_shellShouldContinue(this) && !exit);
+    
+    //--Added 2013-09-22 by Alun Bestor to keep a record of the currently-processing shell
+    currentShell = previousShell;
+    boxer_shellDidFinish(this);
+    //--End of modifications
 }
 
 void DOS_Shell::SyntaxError(void) {
@@ -385,6 +435,14 @@ public:
 		if ( !control->cmdline->FindCommand(1,line) ) { 
 			if ( secure ) autoexec[12].Install("z:\\config.com -securemode");
 		} else {
+			if (line.find(':',((line[0]|0x20) >= 'a' && (line[0]|0x20) <= 'z')?2:0) != std::string::npos) {
+				/* a physfs source */
+				autoexec[12].Install(std::string("MOUNT C \"") + line + std::string("\""));
+				autoexec[13].Install("C:");
+				if(secure) autoexec[14].Install("z:\\config.com -securemode");
+				goto nomount;
+			}
+
 			struct stat test;
 			strcpy(buffer,line.c_str());
 			if (stat(buffer,&test)){
@@ -410,11 +468,20 @@ public:
 				}
 				*name++ = 0;
 				if (access(buffer,F_OK)) goto nomount;
-				autoexec[12].Install(std::string("MOUNT C \"") + buffer + "\"");
-				autoexec[13].Install("C:");
 				/* Save the non modified filename (so boot and imgmount can use it (long filenames, case sensivitive)*/
 				strcpy(orig,name);
 				upcase(name);
+				if((strstr(name,".ZIP") != 0) || (strstr(name,".7Z") != 0)) {
+					//TODO:Add more extensions?
+					LOG_MSG("Mouting %s as PHYSFS write directory", buffer);
+					autoexec[12].Install(std::string("MOUNT C \"") + buffer + std::string(":") + name
+						+ std::string(":\""));
+					autoexec[13].Install("C:");
+					if(secure) autoexec[14].Install("z:\\config.com -securemode");
+					goto nomount;
+				}
+				autoexec[12].Install(std::string("MOUNT C \"") + buffer + "\"");
+				autoexec[13].Install("C:");
 				if(strstr(name,".BAT") != 0) {
 					if(secure) autoexec[14].Install("z:\\config.com -securemode");
 					/* BATch files are called else exit will not work */
@@ -633,7 +700,7 @@ void SHELL_Init() {
 	DOS_ForceDuplicateEntry(1,0);				/* "new" STDIN */
 	DOS_ForceDuplicateEntry(1,2);				/* STDERR */
 	DOS_OpenFile("CON",OPEN_READWRITE,&dummy);	/* STDAUX */
-	DOS_OpenFile("CON",OPEN_READWRITE,&dummy);	/* STDPRN */
+	DOS_OpenFile("PRN",OPEN_READWRITE,&dummy);	/* STDPRN */
 
 	psp.SetParent(psp_seg);
 	/* Set the environment */

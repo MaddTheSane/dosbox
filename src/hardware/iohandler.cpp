@@ -23,7 +23,11 @@
 #include "inout.h"
 #include "setup.h"
 #include "cpu.h"
-#include "../src/cpu/lazyflags.h"
+//--Modified 2009-02-26 by Alun Bestor: Incorrect folder path that wont work in XCode project
+//#include "../src/cpu/lazyflags.h"
+#include "../cpu/lazyflags.h"
+//--End of modifications
+
 #include "callback.h"
 
 //#define ENABLE_PORTLOG

@@ -103,7 +103,7 @@ static void RENDER_StartLineHandler(const void * s) {
 		Bitu *cache = (Bitu*)(render.scale.cacheRead);
 		for (Bits x=render.src.start;x>0;) {
 			if (GCC_UNLIKELY(src[0] != cache[0])) {
-				if (!GFX_StartUpdate( render.scale.outWrite, render.scale.outPitch )) {
+				if (!GFX_StartUpdate(&render.scale.outWrite, &render.scale.outPitch )) {
 					RENDER_DrawLine = RENDER_EmptyLineHandler;
 					return;
 				}
@@ -169,7 +169,8 @@ bool RENDER_StartUpdate(void) {
 	if (GCC_UNLIKELY( render.scale.clearCache) ) {
 //		LOG_MSG("Clearing cache");
 		//Will always have to update the screen with this one anyway, so let's update already
-		if (GCC_UNLIKELY(!GFX_StartUpdate( render.scale.outWrite, render.scale.outPitch )))
+		
+		if (GCC_UNLIKELY(!GFX_StartUpdate(&render.scale.outWrite, &render.scale.outPitch )))
 			return false;
 		render.fullFrame = true;
 		render.scale.clearCache = false;
@@ -177,7 +178,7 @@ bool RENDER_StartUpdate(void) {
 	} else {
 		if (render.pal.changed) {
 			/* Assume pal changes always do a full screen update anyway */
-			if (GCC_UNLIKELY(!GFX_StartUpdate( render.scale.outWrite, render.scale.outPitch )))
+			if (GCC_UNLIKELY(!GFX_StartUpdate(&render.scale.outWrite, &render.scale.outPitch )))
 				return false;
 			RENDER_DrawLine = render.scale.linePalHandler;
 			render.fullFrame = true;
@@ -257,8 +258,14 @@ static Bitu MakeAspectTable(Bitu skip,Bitu height,double scaley,Bitu miny) {
 	return linesadded;
 }
 
+//--Modified 2009-10-18 by Alun Bestor: make unstatic to permit Boxer to call this function itself
+/* static */ void RENDER_Reset( void ) {
+//--End of modifications
 
-static void RENDER_Reset( void ) {
+	//--Added 2009-03-06 by Alun Bestor to allow Boxer to override DOSBox's scaler settings
+	boxer_applyRenderingStrategy();
+	//--End of modifications
+
 	Bitu width=render.src.width;
 	Bitu height=render.src.height;
 	bool dblw=render.src.dblw;
@@ -421,6 +428,7 @@ forcenormal:
 	}
 /* Setup the scaler variables */
 	gfx_flags=GFX_SetSize(width,height,gfx_flags,gfx_scalew,gfx_scaleh,&RENDER_CallBack);
+	
 	if (gfx_flags & GFX_CAN_8)
 		render.scale.outMode = scalerMode8;
 	else if (gfx_flags & GFX_CAN_15)

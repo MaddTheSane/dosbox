@@ -46,8 +46,8 @@ private:
 	Bit16u info;
 };
 
-isoFile::isoFile(isoDrive *drive, const char *name, FileStat_Block *stat, Bit32u offset) {
-	this->drive = drive;
+isoFile::isoFile(isoDrive *drv, const char *filename, FileStat_Block *stat, Bit32u offset) {
+	this->drive = drv;
 	time = stat->time;
 	date = stat->date;
 	attr = stat->attr;
@@ -57,7 +57,7 @@ isoFile::isoFile(isoDrive *drive, const char *name, FileStat_Block *stat, Bit32u
 	cachedSector = -1;
 	open = true;
 	this->name = NULL;
-	SetName(name);
+	SetName(filename);
 }
 
 bool isoFile::Read(Bit8u *data, Bit16u *size) {
@@ -137,54 +137,58 @@ void MSCDEX_ReplaceDrive(CDROM_Interface* cdrom, Bit8u subUnit);
 bool MSCDEX_HasDrive(char driveLetter);
 bool MSCDEX_GetVolumeName(Bit8u subUnit, char* name);
 
-isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &error) {
+isoDrive::isoDrive(char letter, const char *name, Bit8u _mediaid, int &error) {
 	nextFreeDirIterator = 0;
 	memset(dirIterators, 0, sizeof(dirIterators));
 	memset(sectorHashEntries, 0, sizeof(sectorHashEntries));
 	memset(&rootEntry, 0, sizeof(isoDirEntry));
 	
-	safe_strncpy(this->fileName, fileName, CROSS_LEN);
-	error = UpdateMscdex(driveLetter, fileName, subUnit);
+	safe_strncpy(this->fileName, name, CROSS_LEN);
+	error = UpdateMscdex(letter, name, subUnit);
 
 	if (!error) {
 		if (loadImage()) {
 			strcpy(info, "isoDrive ");
-			strcat(info, fileName);
-			this->driveLetter = driveLetter;
-			this->mediaid = mediaid;
+			strcat(info, name);
+			this->driveLetter = letter;
+			this->mediaid = _mediaid;
 			char buffer[32] = { 0 };
 			if (!MSCDEX_GetVolumeName(subUnit, buffer)) strcpy(buffer, "");
 			Set_Label(buffer,discLabel,true);
 
 		} else if (CDROM_Interface_Image::images[subUnit]->HasDataTrack() == false) { //Audio only cdrom
 			strcpy(info, "isoDrive ");
-			strcat(info, fileName);
-			this->driveLetter = driveLetter;
-			this->mediaid = mediaid;
+			strcat(info, name);
+			this->driveLetter = letter;
+			this->mediaid = _mediaid;
 			char buffer[32] = { 0 };
 			strcpy(buffer, "Audio_CD");
 			Set_Label(buffer,discLabel,true);
 		} else error = 6; //Corrupt image
 	}
+	
+	//--Added 2009-10-25 by Alun Bestor to allow Boxer to track the system path for DOSBox drives
+	strcpy(systempath, name);
+	//--End of modifications
 }
 
 isoDrive::~isoDrive() { }
 
-int isoDrive::UpdateMscdex(char driveLetter, const char* path, Bit8u& subUnit) {
-	if (MSCDEX_HasDrive(driveLetter)) {
-		CDROM_Interface_Image* oldCdrom = CDROM_Interface_Image::images[subUnit];
-		CDROM_Interface* cdrom = new CDROM_Interface_Image(subUnit);
+int isoDrive::UpdateMscdex(char letter, const char* path, Bit8u& _subUnit) {
+	if (MSCDEX_HasDrive(letter)) {
+		CDROM_Interface_Image* oldCdrom = CDROM_Interface_Image::images[_subUnit];
+		CDROM_Interface* cdrom = new CDROM_Interface_Image(_subUnit);
 		char pathCopy[CROSS_LEN];
 		safe_strncpy(pathCopy, path, CROSS_LEN);
 		if (!cdrom->SetDevice(pathCopy, 0)) {
-			CDROM_Interface_Image::images[subUnit] = oldCdrom;
+			CDROM_Interface_Image::images[_subUnit] = oldCdrom;
 			delete cdrom;
 			return 3;
 		}
-		MSCDEX_ReplaceDrive(cdrom, subUnit);
+		MSCDEX_ReplaceDrive(cdrom, _subUnit);
 		return 0;
 	} else {
-		return MSCDEX_AddDrive(driveLetter, path, subUnit);
+		return MSCDEX_AddDrive(letter, path, _subUnit);
 	}
 }
 
@@ -192,7 +196,7 @@ void isoDrive::Activate(void) {
 	UpdateMscdex(driveLetter, fileName, subUnit);
 }
 
-bool isoDrive::FileOpen(DOS_File **file, char *name, Bit32u flags) {
+bool isoDrive::FileOpen(DOS_File **file, const char *name, Bit32u flags) {
 	if ((flags & 0x0f) == OPEN_WRITE) {
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
@@ -213,32 +217,32 @@ bool isoDrive::FileOpen(DOS_File **file, char *name, Bit32u flags) {
 	return success;
 }
 
-bool isoDrive::FileCreate(DOS_File** /*file*/, char* /*name*/, Bit16u /*attributes*/) {
+bool isoDrive::FileCreate(DOS_File** /*file*/, const char* /*name*/, Bit16u /*attributes*/) {
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
 
-bool isoDrive::FileUnlink(char* /*name*/) {
+bool isoDrive::FileUnlink(const char* /*name*/) {
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
 
-bool isoDrive::RemoveDir(char* /*dir*/) {
+bool isoDrive::RemoveDir(const char* /*dir*/) {
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
 
-bool isoDrive::MakeDir(char* /*dir*/) {
+bool isoDrive::MakeDir(const char* /*dir*/) {
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
 
-bool isoDrive::TestDir(char *dir) {
+bool isoDrive::TestDir(const char *dir) {
 	isoDirEntry de;	
 	return (lookup(&de, dir) && IS_DIR(de.fileFlags));
 }
 
-bool isoDrive::FindFirst(char *dir, DOS_DTA &dta, bool fcb_findfirst) {
+bool isoDrive::FindFirst(const char *dir, DOS_DTA &dta, bool fcb_findfirst) {
 	isoDirEntry de;
 	if (!lookup(&de, dir)) {
 		DOS_SetError(DOSERR_PATH_NOT_FOUND);
@@ -313,12 +317,12 @@ bool isoDrive::FindNext(DOS_DTA &dta) {
 	return false;
 }
 
-bool isoDrive::Rename(char* /*oldname*/, char* /*newname*/) {
+bool isoDrive::Rename(const char* /*oldname*/, const char* /*newname*/) {
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
 
-bool isoDrive::GetFileAttr(char *name, Bit16u *attr) {
+bool isoDrive::GetFileAttr(const char *name, Bit16u *attr) {
 	*attr = 0;
 	isoDirEntry de;
 	bool success = lookup(&de, name);
