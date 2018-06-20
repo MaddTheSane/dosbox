@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2017  The DOSBox Team
+ *  Copyright (C) 2002-2018  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -608,13 +608,6 @@ Hex Section_prop::Get_hex(string const& _propname) const {
 	return 0;
 }
 
-void trim(string& in) {
-	string::size_type loc = in.find_first_not_of(" \r\t\f\n");
-	if (loc != string::npos) in.erase(0,loc);
-	loc = in.find_last_not_of(" \r\t\f\n");
-	if (loc != string::npos) in.erase(loc+1);
-}
-
 bool Section_prop::HandleInputline(string const& gegevens){
 	string str1 = gegevens;
 	string::size_type loc = str1.find('=');
@@ -656,8 +649,8 @@ string Section_prop::GetPropValue(string const& _property) const {
 }
 
 bool Section_line::HandleInputline(string const& line) {
-	data+=line;
-	data+="\n";
+	if (!data.empty()) data += "\n"; //Add return to previous line in buffer
+	data += line;
 	return true;
 }
 

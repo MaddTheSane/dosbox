@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2017  The DOSBox Team
+ *  Copyright (C) 2002-2018  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -505,10 +505,10 @@ static Bitu DOS_21Handler(void) {
 			Bit8u drive=reg_dl;
 			if (!drive || reg_ah==0x1f) drive = DOS_GetDefaultDrive();
 			else drive--;
-			if (Drives[drive]) {
+			if (drive < DOS_DRIVES && Drives[drive] && !Drives[drive]->isRemovable()) {
 				reg_al = 0x00;
 				SegSet16(ds,dos.tables.dpb);
-				reg_bx = drive;//Faking only the first entry (that is the driveletter)
+				reg_bx = drive*5;//Faking the first entry (drive number) and media id
 				LOG(LOG_DOSMISC,LOG_ERROR)("Get drive parameter block.");
 			} else {
 				reg_al=0xff;
@@ -1114,16 +1114,23 @@ static Bitu DOS_21Handler(void) {
 		break;
 	case 0x69:					/* Get/Set disk serial number */
 		{
+			Bit16u old_cx=reg_cx;
 			switch(reg_al)		{
 			case 0x00:				/* Get */
-				LOG(LOG_DOSMISC,LOG_ERROR)("DOS:Get Disk serial number");
-				CALLBACK_SCF(true);
+				LOG(LOG_DOSMISC,LOG_WARN)("DOS:Get Disk serial number");
+				reg_cl=0x66;// IOCTL function
 				break;
-			case 0x01:
-				LOG(LOG_DOSMISC,LOG_ERROR)("DOS:Set Disk serial number");
+			case 0x01:				/* Set */
+				LOG(LOG_DOSMISC,LOG_WARN)("DOS:Set Disk serial number");
+				reg_cl=0x46;// IOCTL function
+				break;
 			default:
 				E_Exit("DOS:Illegal Get Serial Number call %2X",reg_al);
 			}	
+			reg_ch=0x08;	// IOCTL category: disk drive
+			reg_ax=0x440d;	// Generic block device request
+			DOS_21Handler();
+			reg_cx=old_cx;
 			break;
 		} 
 	case 0x6c:					/* Extended Open/Create */
@@ -1251,6 +1258,7 @@ public:
 		dos.version.major=5;
 		dos.version.minor=0;
 		dos.direct_output=false;
+		dos.internal_output=false;
 	}
 	~DOS(){
 		//--Modified 2009-12-20 by Alun Bestor to properly clear the devices list on shutdown.
