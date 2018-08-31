@@ -686,7 +686,7 @@ dosurface:
 			goto dosurface;
 		}
 		SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-#if defined (WIN32) && SDL_VERSION_ATLEAST(1, 2, 11)
+#if SDL_VERSION_ATLEAST(1, 2, 11)
 		SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, 0 );
 #endif
 		GFX_SetupSurfaceScaled(SDL_OPENGL,0);
@@ -704,7 +704,14 @@ dosurface:
 			sdl.opengl.framebuf=malloc(width*height*4);		//32 bit color
 		}
 		sdl.opengl.pitch=width*4;
-		glViewport(sdl.clip.x,sdl.clip.y,sdl.clip.w,sdl.clip.h);
+
+		if(sdl.clip.x ==0 && sdl.clip.y ==0 && sdl.desktop.fullscreen && !sdl.desktop.full.fixed && (sdl.clip.w != sdl.surface->w || sdl.clip.h != sdl.surface->h)) { 
+//			LOG_MSG("attempting to fix the centering to %d %d %d %d",(sdl.surface->w-sdl.clip.w)/2,(sdl.surface->h-sdl.clip.h)/2,sdl.clip.w,sdl.clip.h);
+			glViewport((sdl.surface->w-sdl.clip.w)/2,(sdl.surface->h-sdl.clip.h)/2,sdl.clip.w,sdl.clip.h);
+		} else {
+			glViewport(sdl.clip.x,sdl.clip.y,sdl.clip.w,sdl.clip.h);
+		}		
+
 		glMatrixMode (GL_PROJECTION);
 		glDeleteTextures(1,&sdl.opengl.texture);
  		glGenTextures(1,&sdl.opengl.texture);
@@ -1240,14 +1247,28 @@ static void GUI_StartUp(Section * sec) {
 	}
 	sdl.desktop.doublebuf=section->Get_bool("fulldouble");
 #if SDL_VERSION_ATLEAST(1, 2, 10)
+#ifdef WIN32
+	const SDL_VideoInfo* vidinfo = SDL_GetVideoInfo();
+	if (vidinfo) {
+		int sdl_w = vidinfo->current_w;
+		int sdl_h = vidinfo->current_h;
+		int win_w = GetSystemMetrics(SM_CXSCREEN);
+		int win_h = GetSystemMetrics(SM_CYSCREEN);
+		if (sdl_w != win_w && sdl_h != win_h) 
+			LOG_MSG("Windows dpi/blurry apps scaling detected! The screen might be too large or not show properly,\n"
+		        "please see the DOSBox Manual/README for details.\n");
+		}
+#else
 	if (!sdl.desktop.full.width || !sdl.desktop.full.height){
 		//Can only be done on the very first call! Not restartable.
+		//On windows don't use it as SDL returns the values without taking in account the dpi scaling
 		const SDL_VideoInfo* vidinfo = SDL_GetVideoInfo();
 		if (vidinfo) {
 			sdl.desktop.full.width = vidinfo->current_w;
 			sdl.desktop.full.height = vidinfo->current_h;
 		}
 	}
+#endif
 #endif
 
 	if (!sdl.desktop.full.width) {
