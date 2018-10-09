@@ -1149,7 +1149,12 @@ dosurface:
 #if SDL_VERSION_ATLEAST(2,0,0)
 		int windowHeight;
 		SDL_GetWindowSize(sdl.window, NULL, &windowHeight);
-		glViewport(sdl.clip.x,windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
+		if(sdl.clip.x ==0 && sdl.clip.y ==0 && sdl.desktop.fullscreen && !sdl.desktop.full.fixed && (sdl.clip.w != sdl.surface->w || sdl.clip.h != sdl.surface->h)) { 
+//			LOG_MSG("attempting to fix the centering to %d %d %d %d",(sdl.surface->w-sdl.clip.w)/2,(sdl.surface->h-sdl.clip.h)/2,sdl.clip.w,sdl.clip.h);
+			glViewport((sdl.surface->w-sdl.clip.w)/2,windowHeight-(sdl.surface->h-sdl.clip.h)/2,sdl.clip.w,sdl.clip.h);
+		} else {
+			glViewport(sdl.clip.x,windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
+		}		
 #else
 
 		if(sdl.clip.x ==0 && sdl.clip.y ==0 && sdl.desktop.fullscreen && !sdl.desktop.full.fixed && (sdl.clip.w != sdl.surface->w || sdl.clip.h != sdl.surface->h)) { 

@@ -25,6 +25,7 @@
 #if (C_COMPAT_SDL_CDROM_PLATFORM == COMPAT_SDL_CDROM_PLATFORM_MACOSX)
 
 #include "SDL_config.h"
+#include "../compat_SDL_cdrom.h"
 
 #include "CDPlayer.h"
 #include "AudioFilePlayer.h"
@@ -559,7 +560,7 @@ static OSStatus CheckInit ()
     callbackSem = SDL_CreateSemaphore(0);
 
     /* Start callback thread */
-    SDL_CreateThread(RunCallBackThread, NULL);
+    SDL_CreateThread(RunCallBackThread, NULL, NULL);
 
     { /*try {*/
         ComponentDescription desc;
