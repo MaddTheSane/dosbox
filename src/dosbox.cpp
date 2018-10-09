@@ -433,9 +433,9 @@ void DOSBOX_Init(void) {
 	Pint->SetMinMax(1,63);
 	Pint->Set_help(
 		"Amount of memory DOSBox has in megabytes.\n"
-		"  This value is best left at its default to avoid problems with some games,\n"
-		"  though few games might require a higher value.\n"
-		"  There is generally no speed advantage when raising this value.");
+		"This value is best left at its default to avoid problems with some games,\n"
+		"though few games might require a higher value.\n"
+		"There is generally no speed advantage when raising this value.");
 	secprop->AddInitFunction(&CALLBACK_Init);
 	secprop->AddInitFunction(&PIC_Init);//done
 	secprop->AddInitFunction(&PROGRAMS_Init);
@@ -448,12 +448,14 @@ void DOSBOX_Init(void) {
 	Pint->Set_help("How many frames DOSBox skips before drawing one.");
 
 	Pbool = secprop->Add_bool("aspect",Property::Changeable::Always,false);
-	Pbool->Set_help("Do aspect correction, if your output method doesn't support scaling this can slow things down!.");
+	Pbool->Set_help("Do aspect correction, if your output method doesn't support scaling this can slow things down!");
 
 	Pmulti = secprop->Add_multi("scaler",Property::Changeable::Always," ");
 	Pmulti->SetValue("normal2x");
 	Pmulti->Set_help("Scaler used to enlarge/enhance low resolution modes. If 'forced' is appended,\n"
-	                 "then the scaler will be used even if the result might not be desired.");
+	                 "then the scaler will be used even if the result might not be desired.\n"
+					 "To fit a scaler in the resolution used at full screen may require a border or side bars,\n"
+					 "to fill the screen entirely, depending on your hardware, a different scaler/fullresolution might work.");
 	Pstring = Pmulti->GetSection()->Add_string("type",Property::Changeable::Always,"normal2x");
 
 	const char *scalers[] = {
@@ -562,10 +564,10 @@ void DOSBOX_Init(void) {
 
 	Pstring = secprop->Add_string("midiconfig",Property::Changeable::WhenIdle,"");
 	Pstring->Set_help("Special configuration options for the device driver. This is usually the id or part of the name of the device you want to use (find the id/name with mixer/listmidi).\n"
-	                  "  Or in the case of coreaudio, you can specify a soundfont here.\n"
-	                  "  When using a Roland MT-32 rev. 0 as midi output device, some games may require a delay in order to prevent 'buffer overflow' issues.\n"
-	                  "  In that case, add 'delaysysex', for example: midiconfig=2 delaysysex\n"
-	                  "  See the README/Manual for more details.");
+	                  "Or in the case of coreaudio, you can specify a soundfont here.\n"
+	                  "When using a Roland MT-32 rev. 0 as midi output device, some games may require a delay in order to prevent 'buffer overflow' issues.\n"
+	                  "In that case, add 'delaysysex', for example: midiconfig=2 delaysysex\n"
+	                  "See the README/Manual for more details.");
 
 #if C_DEBUG
 	secprop=control->AddSection_prop("debug",&DEBUG_Init);

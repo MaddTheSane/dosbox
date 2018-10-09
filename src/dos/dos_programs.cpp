@@ -128,6 +128,7 @@ public:
 					switch (DriveManager::UnmountDrive(i_drive)) {
 					case 0:
 						Drives[i_drive] = 0;
+						mem_writeb(Real2Phys(dos.tables.mediaid)+i_drive*5,0);
 						if(i_drive == DOS_GetDefaultDrive()) 
 							DOS_SetDrive(ZDRIVE_NUM);
 						WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_SUCCESS"),umount[0]);
@@ -415,7 +416,7 @@ public:
 		if (!newdrive) E_Exit("DOS:Can't create drive");
 		Drives[drive-'A']=newdrive;
 		/* Set the correct media byte in the table */
-		mem_writeb(Real2Phys(dos.tables.mediaid)+(drive-'A')*2,newdrive->GetMediaByte());
+		mem_writeb(Real2Phys(dos.tables.mediaid)+(drive-'A')*5,newdrive->GetMediaByte());
 		WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"),drive,newdrive->GetInfo());
 		/* check if volume label is given and don't allow it to updated in the future */
 		if (cmd->FindString("-label",label,true)) newdrive->dirCache.SetLabel(label.c_str(),iscdrom,false);
@@ -461,9 +462,7 @@ public:
 
 		Bit16u seg,blocks;blocks=0xffff;
 		DOS_AllocateMemory(&seg,&blocks);
-		if ((machine==MCH_PCJR) && (real_readb(0x2000,0)==0x5a) && (real_readw(0x2000,1)==0) && (real_readw(0x2000,3)==0x7ffe)) {
-			WriteOut(MSG_Get("PROGRAM_MEM_CONVEN"),0x7ffe*16/1024);
-		} else WriteOut(MSG_Get("PROGRAM_MEM_CONVEN"),blocks*16/1024);
+		WriteOut(MSG_Get("PROGRAM_MEM_CONVEN"),blocks*16/1024);
 
 		if (umb_start!=0xffff) {
 			DOS_LinkUMBsToMemChain(1);
@@ -1335,14 +1334,14 @@ public:
 				DriveManager::InitializeDrive(drive - 'A');
 
 				// Set the correct media byte in the table 
-				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 2, mediaid);
+				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 5, mediaid);
 				
 				/* Command uses dta so set it to our internal dta */
 				RealPt save_dta = dos.dta();
 				dos.dta(dos.tables.tempdta);
 
 				for(ct = 0; ct < imgDisks.size(); ct++) {
-					DriveManager::CycleAllDisks();
+					DriveManager::CycleDisks(drive - 'A', (ct == (imgDisks.size() - 1)));
 
 					char root[7] = {drive,':','\\','*','.','*',0};
 					DOS_FindFirst(root, DOS_ATTR_VOLUME); // force obtaining the label and saving it in dirCache
@@ -1357,20 +1356,22 @@ public:
 
 				if (paths.size() == 1) {
 					newdrive = imgDisks[0];
-					if(((fatDrive *)newdrive)->loadedDisk->hardDrive) {
-						if(imageDiskList[2] == NULL) {
-							imageDiskList[2] = ((fatDrive *)newdrive)->loadedDisk;
-							updateDPT();
-							return;
+					switch (drive - 'A') {
+					case 0:
+					case 1:
+						if(!((fatDrive *)newdrive)->loadedDisk->hardDrive) {
+							if(imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
+							imageDiskList[drive - 'A'] = ((fatDrive *)newdrive)->loadedDisk;
 						}
-						if(imageDiskList[3] == NULL) {
-							imageDiskList[3] = ((fatDrive *)newdrive)->loadedDisk;
+						break;
+					case 2:
+					case 3:
+						if(((fatDrive *)newdrive)->loadedDisk->hardDrive) {
+							if(imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
+							imageDiskList[drive - 'A'] = ((fatDrive *)newdrive)->loadedDisk;
 							updateDPT();
-							return;
 						}
-					}
-					if(!((fatDrive *)newdrive)->loadedDisk->hardDrive) {
-						imageDiskList[0] = ((fatDrive *)newdrive)->loadedDisk;
+						break;
 					}
 				}
 			} else if (fstype=="iso") {
@@ -1415,7 +1416,7 @@ public:
 				DriveManager::InitializeDrive(drive - 'A');
 				
 				// Set the correct media byte in the table 
-				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 2, mediaid);
+				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 5, mediaid);
 				
 				// Print status message (success)
 				WriteOut(MSG_Get("MSCDEX_SUCCESS"));
