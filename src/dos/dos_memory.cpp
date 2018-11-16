@@ -55,25 +55,8 @@ void DOS_FreeProcessMemory(Bit16u pspseg) {
 		if (mcb.GetPSPSeg()==pspseg) {
 			mcb.SetPSPSeg(MCB_FREE);
 		}
-        //--Modified 2013-03-24 by Alun Bestor: previous versions looped through the MCBs
-        //until they found the one explicitly marked as the last entry, but it seems at least
-        //Tyrian 2000 was occasionally fucking up the MCB chain such that the last entry
-        //isn't marked as such, causing an infinite loop.
-        //This was changed to check instead if the MCB is *not* marked as an intermediate MCB,
-        //which should break out safely in the case of memory corruption.
-        Bit8u mcbType = mcb.GetType();
-		//if (mcb.GetType()==0x5a) {
-        if (mcbType != 0x4d) {
-			/* check if currently last block reaches up to the PCJr graphics memory */
-			if (mcbType == 0x5a && (machine==MCH_PCJR) && (mcb_segment+mcb.GetSize()==0x17fe) &&
-			   (real_readb(0x17ff,0)==0x4d) && (real_readw(0x17ff,1)==8)) {
-				/* re-enable the memory past segment 0x2000 */
-				mcb.SetType(0x4d);
-			} else break;
-		}
-		//if (GCC_UNLIKELY(mcb.GetType()!=0x4d)) E_Exit("Corrupt MCB chain");
-		//--End of modifications
-		
+		if (mcb.GetType()==0x5a) break;
+		if (GCC_UNLIKELY(mcb.GetType()!=0x4d)) E_Exit("Corrupt MCB chain");
 		mcb_segment+=mcb.GetSize()+1;
 		mcb.SetPt(mcb_segment);
 	}
@@ -322,10 +305,10 @@ bool DOS_FreeMemory(Bit16u segment) {
 
 
 void DOS_BuildUMBChain(bool umb_active,bool ems_active) {
-	if (umb_active  && (machine!=MCH_TANDY)) {
+	if (umb_active  && (!IS_TANDY_ARCH)) {
 		Bit16u first_umb_seg = 0xd000;
 		Bit16u first_umb_size = 0x2000;
-		if(ems_active || (machine == MCH_PCJR)) first_umb_size = 0x1000;
+		if(ems_active) first_umb_size = 0x1000;
 
 		dos_infoblock.SetStartOfUMBChain(UMB_START_SEG);
 		dos_infoblock.SetUMBChainState(0);		// UMBs not linked yet

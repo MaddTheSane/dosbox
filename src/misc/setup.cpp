@@ -634,8 +634,15 @@ bool Section_prop::HandleInputline(string const& gegevens){
 
 void Section_prop::PrintData(FILE* outfile) const {
 	/* Now print out the individual section entries */
-	for(const_it tel=properties.begin();tel!=properties.end();tel++){
-		fprintf(outfile,"%s=%s\n",(*tel)->propname.c_str(),(*tel)->GetValue().ToString().c_str());
+	size_t len = 0;
+	// Determine maximum length of the props in this section
+	for(const_it tel = properties.begin();tel != properties.end();tel++) {
+		if ((*tel)->propname.length() > len)
+			len = (*tel)->propname.length();
+	}
+
+	for(const_it tel = properties.begin();tel != properties.end();tel++) {
+		fprintf(outfile,"%-*s = %s\n", len, (*tel)->propname.c_str(), (*tel)->GetValue().ToString().c_str());
 	}
 }
 
@@ -686,7 +693,7 @@ bool Config::PrintConfig(char const * const configfilename) const {
 			}
 			i=0;
 			char prefix[80];
-			snprintf(prefix,80, "\n# %*s  ", (int)maxwidth, "");
+			snprintf(prefix,80, "\n# %*s    ", (int)maxwidth, "");
 			while ((p = sec->Get_prop(i++))) {
 				std::string help = p->Get_help();
 				std::string::size_type pos = std::string::npos;
@@ -829,7 +836,7 @@ bool Config::ParseConfigFile(char const * const configfilename) {
 	settings_type = (configfiles.size() == 0)? "primary":"additional";
 	configfiles.push_back(configfilename);
 
-	LOG_MSG("CONFIG:Loading %s settings from config file %s", settings_type,configfilename);
+	LOG_MSG("CONFIG: Loading %s settings from config file %s", settings_type,configfilename);
 
 	//Get directory from configfilename, used with relative paths.
 	current_config_dir=configfilename;
