@@ -25,7 +25,7 @@
     Note: This file hasn't been modified so technically we have to keep the disclaimer :-(
 
 
-    Copyright:  \A9 Copyright 2002 Apple Computer, Inc. All rights reserved.
+    Copyright:  © Copyright 2002 Apple Computer, Inc. All rights reserved.
 
     Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc.
             ("Apple") in consideration of your agreement to the following terms, and your
@@ -34,7 +34,7 @@
             please do not use, install, modify or redistribute this Apple software.
 
             In consideration of your agreement to abide by the following terms, and subject
-            to these terms, Apple grants you a personal, non-exclusive license, under Apple\D5s
+            to these terms, Apple grants you a personal, non-exclusive license, under Apple’s
             copyrights in this original Apple software (the "Apple Software"), to use,
             reproduce, modify and redistribute the Apple Software, with or without
             modifications, in source and/or binary forms; provided that if you redistribute
@@ -76,6 +76,7 @@
 #include <CoreAudio/CoreAudioTypes.h>
 #include <pthread.h>
 
+#ifdef __cplusplus
 
 /*=============================================================================
     CAGuard
@@ -89,28 +90,36 @@
     return false if they receive notification any other way.
   =============================================================================*/
 
-typedef struct S_SDLOSXCAGuard
+class SDLOSXCAGuard
 {
 
 /*  Construction/Destruction */
-/*public:*/
+public:
+    SDLOSXCAGuard();
+    ~SDLOSXCAGuard();
 /*  Actions */
-/*public:*/
-    int     (*Lock)(struct S_SDLOSXCAGuard *cag);
-    void    (*Unlock)(struct S_SDLOSXCAGuard *cag);
-    int     (*Try)(struct S_SDLOSXCAGuard *cag, int *outWasLocked);    /* returns true if lock is free, false if not */
-    void    (*Wait)(struct S_SDLOSXCAGuard *cag);
-    void    (*Notify)(struct S_SDLOSXCAGuard *cag);
+    bool    Lock();
+    void    Unlock();
+    bool    Try(int *outWasLocked);    /* returns true if lock is free, false if not */
+    void    Wait();
+    void    Notify();
 
 /*  Implementation */
-/*protected:*/
+protected:
     pthread_mutex_t mMutex;
     pthread_cond_t  mCondVar;
     pthread_t       mOwner;
-} SDLOSXCAGuard;
+};
+
+extern "C" {
+#endif
 
 SDLOSXCAGuard *new_SDLOSXCAGuard(void);
 void delete_SDLOSXCAGuard(SDLOSXCAGuard *cag);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
