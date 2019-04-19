@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -58,6 +58,41 @@ Bitu DEBUG_EnableDebugger(void);
 
 void MSCDEX_SetCDInterface(int intNr, int forceCD);
 static Bitu ZDRIVE_NUM = 25;
+
+static const char* UnmountHelper(char umount) {
+	int i_drive;
+	if (umount < '0' || umount > 3+'0')
+		i_drive = toupper(umount) - 'A';
+	else
+		i_drive = umount - '0';
+
+	if (i_drive >= DOS_DRIVES || i_drive < 0 || (Drives[i_drive] == NULL && imageDiskList[i_drive] == NULL))
+		return MSG_Get("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED");
+
+	if (Drives[i_drive]) {
+		switch (DriveManager::UnmountDrive(i_drive)) {
+			case 1: return MSG_Get("PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL");
+			case 2: return MSG_Get("MSCDEX_ERROR_MULTIPLE_CDROMS");
+		}
+		Drives[i_drive] = 0;
+		mem_writeb(Real2Phys(dos.tables.mediaid)+i_drive*9,0);
+		if (i_drive == DOS_GetDefaultDrive()) {
+			DOS_SetDrive(ZDRIVE_NUM);
+		}
+
+	}
+
+	if (imageDiskList[i_drive]) {
+		delete imageDiskList[i_drive];
+		imageDiskList[i_drive] = NULL;
+	}
+	
+	//--Added 2010-01-18 by Alun Bestor: let Boxer know that the drive state has changed
+	boxer_driveDidUnmount(i_drive);
+	//--End of modifications
+
+	return MSG_Get("PROGRAM_MOUNT_UMOUNT_SUCCESS");
+}
 
 class MOUNT : public Program {
 public:
@@ -120,31 +155,7 @@ public:
 
 		/* Check for unmounting */
 		if (cmd->FindString("-u",umount,false)) {
-			umount[0] = toupper(umount[0]);
-			int i_drive = umount[0]-'A';
-				if (i_drive < DOS_DRIVES && i_drive >= 0 && Drives[i_drive]) {
-					switch (DriveManager::UnmountDrive(i_drive)) {
-					case 0:
-						Drives[i_drive] = 0;
-						mem_writeb(Real2Phys(dos.tables.mediaid)+i_drive*9,0);
-						if(i_drive == DOS_GetDefaultDrive()) 
-							DOS_SetDrive(ZDRIVE_NUM);
-						WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_SUCCESS"),umount[0]);
-							
-						//--Added 2010-01-18 by Alun Bestor: let Boxer know that the drive state has changed
-						boxer_driveDidUnmount(i_drive);
-						//--End of modifications
-						break;
-					case 1:
-						WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL"));
-						break;
-					case 2:
-						WriteOut(MSG_Get("MSCDEX_ERROR_MULTIPLE_CDROMS"));
-						break;
-					}
-				} else {
-					WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED"),umount[0]);
-				}
+			WriteOut(UnmountHelper(umount[0]), toupper(umount[0]));
 			return;
 		}
 		
@@ -199,14 +210,14 @@ public:
 		std::string type="dir";
 		cmd->FindString("-t",type,true);
 		bool iscdrom = (type =="cdrom"); //Used for mscdex bug cdrom label name emulation
-		if (type=="floppy" || type=="dir" || type=="cdrom") {
+		if (type=="floppy" || type=="dir" || type=="cdrom" || type =="overlay") {
 			Bit16u sizes[4];
 			Bit8u mediaid;
 			std::string str_size;
 			if (type=="floppy") {
 				str_size="512,1,2880,2880";/* All space free */
 				mediaid=0xF0;		/* Floppy 1.44 media */
-			} else if (type=="dir") {
+			} else if (type=="dir" || type == "overlay") {
 				// 512*32*32765==~500MB total size
 				// 512*32*16000==~250MB total free size
 				str_size="512,32,32765,16000";
@@ -390,7 +401,39 @@ public:
 				
 				//--End of modifications
 #endif
-				newdrive=new localDrive(temp_line.c_str(),sizes[0],bit8size,sizes[2],sizes[3],mediaid);
+				if(type == "overlay") {
+					//Ensure that the base drive exists:
+					if (!Drives[drive-'A']) { 
+						WriteOut("No basedrive mounted yet!");
+						return;
+					}
+					localDrive* ldp = dynamic_cast<localDrive*>(Drives[drive-'A']);
+					cdromDrive* cdp = dynamic_cast<cdromDrive*>(Drives[drive-'A']);
+					if (!ldp || cdp) {
+						WriteOut("Basedrive not compatible");
+						return;
+					}
+					std::string base = ldp->getBasedir();
+					Bit8u o_error = 0;
+					newdrive = new Overlay_Drive(base.c_str(),temp_line.c_str(),sizes[0],bit8size,sizes[2],sizes[3],mediaid,o_error);
+					//Erase old drive on succes
+					if (newdrive) {
+						if (o_error) { 
+							if (o_error == 1) WriteOut("No mixing of relative and absolute paths. Overlay failed.");
+							else if (o_error == 2) WriteOut("overlay directory can not be the same as underlying filesystem.");
+							else WriteOut("Something went wrong");
+							delete newdrive;
+							return;
+						}
+						delete Drives[drive-'A'];
+						Drives[drive-'A'] = 0;
+					} else { 
+						WriteOut("overlaydrive construction failed.");
+						return;
+					}
+				} else {
+					newdrive=new localDrive(temp_line.c_str(),sizes[0],bit8size,sizes[2],sizes[3],mediaid);
+				}
 			}
 		} else {
 			WriteOut(MSG_Get("PROGRAM_MOUNT_ILL_TYPE"),type.c_str());
@@ -405,13 +448,14 @@ public:
 		Drives[drive-'A']=newdrive;
 		/* Set the correct media byte in the table */
 		mem_writeb(Real2Phys(dos.tables.mediaid)+(drive-'A')*9,newdrive->GetMediaByte());
-		WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"),drive,newdrive->GetInfo());
+		if (type != "overlay") WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"),drive,newdrive->GetInfo());
+		else WriteOut("Overlay %s on drive %c mounted.\n",temp_line.c_str(),drive);
 		/* check if volume label is given and don't allow it to updated in the future */
 		if (cmd->FindString("-label",label,true)) newdrive->dirCache.SetLabel(label.c_str(),iscdrom,false);
 		/* For hard drives set the label to DRIVELETTER_Drive.
 		 * For floppy drives set the label to DRIVELETTER_Floppy.
 		 * This way every drive except cdroms should get a label.*/
-		else if(type == "dir") { 
+		else if(type == "dir" || type == "overlay") { 
 			label = drive; label += "_DRIVE";
 			newdrive->dirCache.SetLabel(label.c_str(),iscdrom,false);
 		} else if(type == "floppy") {
@@ -1131,31 +1175,7 @@ public:
 		std::string umount;
 		/* Check for unmounting */
 		if (cmd->FindString("-u",umount,false)) {
-			umount[0] = toupper(umount[0]);
-			int i_drive = umount[0]-'A';
-				if (i_drive < DOS_DRIVES && i_drive >= 0 && Drives[i_drive]) {
-					switch (DriveManager::UnmountDrive(i_drive)) {
-					case 0:
-						Drives[i_drive] = 0;
-						if (i_drive == DOS_GetDefaultDrive()) 
-							DOS_SetDrive(toupper('Z') - 'A');
-						WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_SUCCESS"),umount[0]);
-						
-						//--Added 2010-01-18 by Alun Bestor: let Boxer know that the drive state has changed
-						boxer_driveDidUnmount(i_drive);
-						//--End of modifications
-							
-						break;
-					case 1:
-						WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL"));
-						break;
-					case 2:
-						WriteOut(MSG_Get("MSCDEX_ERROR_MULTIPLE_CDROMS"));
-						break;
-					}
-				} else {
-					WriteOut(MSG_Get("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED"),umount[0]);
-				}
+			WriteOut(UnmountHelper(umount[0]), toupper(umount[0]));
 			return;
 		}
 
