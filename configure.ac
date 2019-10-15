@@ -340,7 +340,7 @@ AC_MSG_CHECKING(whether x86 dynamic cpu core will be enabled)
 if test x$enable_dynamic_x86 = xno -o x$enable_dynamic_core = xno; then 
    AC_MSG_RESULT(no)
 else
-  if test x$c_targetcpu = xx86 ; then
+  if test x$c_targetcpu = xx86 -o x$c_targetcpu = xx86_64; then
       AC_DEFINE(C_DYNAMIC_X86,1)
       AC_MSG_RESULT(yes)
   else
@@ -355,7 +355,7 @@ if test x$enable_dynrec = xno -o x$enable_dynamic_core = xno; then
    AC_MSG_RESULT(no)
 else
 dnl x86 only enable it if dynamic-x86 is disabled.
-  if test x$c_targetcpu = xx86 ; then
+  if test x$c_targetcpu = xx86 -o x$c_targetcpu = xx86_64; then
     if test x$enable_dynamic_x86 = xno ; then
         AC_DEFINE(C_DYNREC,1)
         AC_MSG_RESULT(yes)
@@ -363,16 +363,11 @@ dnl x86 only enable it if dynamic-x86 is disabled.
         AC_MSG_RESULT([no, using dynamic-x86])
     fi
   else 
-    if test x$c_targetcpu = xx86_64 ; then
-        AC_DEFINE(C_DYNREC,1)
-        AC_MSG_RESULT(yes)
-    else
-      if test x$c_targetcpu = xarm ; then
-        AC_DEFINE(C_DYNREC,1)
-	AC_MSG_RESULT(yes)
-      else 
-        AC_MSG_RESULT(no)
-      fi
+    if test x$c_targetcpu = xarm ; then
+      AC_DEFINE(C_DYNREC,1)
+      AC_MSG_RESULT(yes)
+    else 
+      AC_MSG_RESULT(no)
     fi
   fi
 fi
@@ -539,6 +534,9 @@ AH_TEMPLATE(C_HAVE_MPROTECT,[Define to 1 if you have the mprotect function])
 AC_CHECK_HEADER([sys/mman.h], [
 AC_CHECK_FUNC([mprotect],[AC_DEFINE(C_HAVE_MPROTECT,1)])
 ])
+
+dnl Check for realpath. Used on Linux
+AC_CHECK_FUNCS([realpath])
 
 dnl Setpriority
 AH_TEMPLATE(C_SET_PRIORITY,[Define to 1 if you have setpriority support])

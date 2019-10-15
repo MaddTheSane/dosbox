@@ -20,7 +20,6 @@
 #include "dosbox.h"
 #include "mem.h"
 #include "dos_inc.h"
-#include "callback.h"
 
 #define UMB_START_SEG 0x9fff
 
@@ -31,11 +30,7 @@ static void DOS_CompressMemory(void) {
 	DOS_MCB mcb(mcb_segment);
 	DOS_MCB mcb_next(0);
 
-	//--Modified 2013-03-24 by Alun Bestor: safer loop in case the MCB chain
-	//has gotten corrupted. See note below under DOS_FreeProcessMemory for explanation.
-	//while (mcb.GetType()!=0x5a) {
-	while (mcb.GetType() == 0x4d) {
-	//--End of modifications
+	while (mcb.GetType()!=0x5a) {
 		mcb_next.SetPt((Bit16u)(mcb_segment+mcb.GetSize()+1));
 		if (GCC_UNLIKELY((mcb_next.GetType()!=0x4d) && (mcb_next.GetType()!=0x5a))) E_Exit("Corrupt MCB chain");
 		if ((mcb.GetPSPSeg()==MCB_FREE) && (mcb_next.GetPSPSeg()==MCB_FREE)) {
@@ -384,30 +379,13 @@ bool DOS_LinkUMBsToMemChain(Bit16u linkstate) {
 }
 
 
-static Bitu DOS_default_handler(void) {
-	LOG(LOG_CPU,LOG_ERROR)("DOS rerouted Interrupt Called %X",lastint);
-	return CBRET_NONE;
-}
-
-//--Modified 2009-12-20 by Alun Bestor to make callbackhandler a local instead of a static global,
-//to prevent CALLBACK_HandlerObject.Allocate dying with an already-installed error after shutdown-and-restart.
-//I have no idea whether this is breaking the callback or not, nor any idea how to simply 'null' this given
-//it's not a pointer. C++ noob.
-
-//static	CALLBACK_HandlerObject callbackhandler;
 void DOS_SetupMemory(void) {
 	/* Let dos claim a few bios interrupts. Makes DOSBox more compatible with 
 	 * buggy games, which compare against the interrupt table. (probably a 
 	 * broken linked list implementation) */
-	CALLBACK_HandlerObject callbackhandler;
-//--End of modifications
-	callbackhandler.Allocate(&DOS_default_handler,"DOS default int");
 	Bit16u ihseg = 0x70;
-	Bit16u ihofs = 0x08;
-	real_writeb(ihseg,ihofs+0x00,(Bit8u)0xFE);	//GRP 4
-	real_writeb(ihseg,ihofs+0x01,(Bit8u)0x38);	//Extra Callback instruction
-	real_writew(ihseg,ihofs+0x02,callbackhandler.Get_callback());  //The immediate word
-	real_writeb(ihseg,ihofs+0x04,(Bit8u)0xCF);	//An IRET Instruction
+	Bit16u ihofs = 0xF4;
+	real_writeb(ihseg,ihofs,(Bit8u)0xCF);		//An IRET Instruction
 	RealSetVec(0x01,RealMake(ihseg,ihofs));		//BioMenace (offset!=4)
 	RealSetVec(0x02,RealMake(ihseg,ihofs));		//BioMenace (segment<0x8000)
 	RealSetVec(0x03,RealMake(ihseg,ihofs));		//Alien Incident (offset!=0)

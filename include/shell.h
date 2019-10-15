@@ -35,11 +35,12 @@
 #define CMD_MAXCMDS 20
 #define CMD_OLDSIZE 4096
 extern Bitu call_shellstop;
+class DOS_Shell;
+
 /* first_shell is used to add and delete stuff from the shell env 
  * by "external" programs. (config) */
-extern Program * first_shell;
+extern DOS_Shell * first_shell;
 
-class DOS_Shell;
 
 //--Added 2013-09-22 by Alun Bestor to let Boxer talk to the currently active shell
 extern DOS_Shell * currentShell;

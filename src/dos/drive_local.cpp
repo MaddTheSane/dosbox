@@ -39,7 +39,7 @@ bool localDrive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes*/)
 	CROSS_FILENAME(newname);
 	char* temp_name = dirCache.GetExpandName(newname); //Can only be used in till a new drive_cache action is preformed */
 	/* Test if file exists (so we need to truncate it). don't add to dirCache then */
-	bool existing_file=false;
+	bool existing_file = false;
 	
     //--Added 2010-01-18 by Alun Bestor to allow Boxer to selectively deny write access to files
     if (!boxer_shouldAllowWriteAccessToPath((const char *)newname, this))
@@ -50,7 +50,7 @@ bool localDrive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes*/)
     //--End of modifications
 
     //-- Modified 2012-07-24 by Alun Bestor to allow Boxer to shadow local file access
-    //FILE * test=fopen(temp_name,"rb+");
+    //FILE * test=fopen_wrap(temp_name,"rb+");
     FILE * test=boxer_openLocalFile(temp_name, this, "rb+");
     //--End of modifications
 	if(test) {
@@ -60,7 +60,7 @@ bool localDrive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes*/)
 	}
 	
     //-- Modified 2012-07-24 by Alun Bestor to allow Boxer to shadow local file access
-    //FILE * hand=fopen(temp_name,"wb+");
+    //FILE * hand=fopen_wrap(temp_name,"wb+");
     FILE * hand=boxer_openLocalFile(temp_name, this, "wb+");
     //--End of modifications
 	if (!hand){
@@ -137,7 +137,7 @@ bool localDrive::FileOpen(DOS_File * * file,char * name,Bit32u flags) {
 	}
 
     //-- Modified 2012-07-24 by Alun Bestor to allow Boxer to shadow local file access
-    //FILE * hand=fopen(newname,type);
+    //FILE * hand=fopen_wrap(newname,type);
     FILE * hand=boxer_openLocalFile(newname, this, type);
     //--End of modifications
 
@@ -146,7 +146,7 @@ bool localDrive::FileOpen(DOS_File * * file,char * name,Bit32u flags) {
 		if((flags&0xf) != OPEN_READ) {
             
             //-- Modified 2012-07-24 by Alun Bestor to allow Boxer to shadow local file access
-            //FILE * hmm=fopen(newname,"rb");
+            //FILE * hmm=fopen_wrap(newname,"rb");
             FILE * hmm=boxer_openLocalFile(newname, this, "rb");
             //--End of modifications
             
@@ -173,7 +173,7 @@ FILE * localDrive::GetSystemFilePtr(char const * const name, char const * const 
 	dirCache.ExpandName(newname);
 
     //-- Modified 2012-07-24 by Alun Bestor to allow Boxer to shadow local file access
-	//return fopen(newname,type);
+	//return fopen_wrap(newname,type);
     return boxer_openLocalFile(newname, this, type);
     //--End of modifications
 }
@@ -210,7 +210,7 @@ bool localDrive::FileUnlink(char * name) {
         //if(stat(fullname,&buffer)) return false; // File not found.
         if (!boxer_getLocalPathStats(fullname, this, &buffer)) return false;
 		
-		//FILE* file_writable = fopen(fullname,"rb+");
+		//FILE* file_writable = fopen_wrap(fullname,"rb+");
         FILE* file_writable = boxer_openLocalFile(fullname, this, "rb+");
 		
 		if(!file_writable) return false; //No acces ? ERROR MESSAGE NOT SET. FIXME ?
@@ -735,7 +735,10 @@ bool MSCDEX_GetVolumeName(Bit8u subUnit, char* name);
 
 
 cdromDrive::cdromDrive(const char driveLetter, const char * startdir,Bit16u _bytes_sector,Bit8u _sectors_cluster,Bit16u _total_clusters,Bit16u _free_clusters,Bit8u _mediaid, int& error)
-		   :localDrive(startdir,_bytes_sector,_sectors_cluster,_total_clusters,_free_clusters,_mediaid) {
+		   :localDrive(startdir,_bytes_sector,_sectors_cluster,_total_clusters,_free_clusters,_mediaid),
+		    subUnit(0),
+		    driveLetter('\0')
+{
 	// Init mscdex
 	error = MSCDEX_AddDrive(driveLetter,startdir,subUnit);
 	strcpy(info, "CDRom ");
