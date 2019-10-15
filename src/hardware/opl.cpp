@@ -25,9 +25,6 @@
  */
 
 
-//--Added 2009-10-18 by Alun Bestor to allow calls to memset() which were failing to compile otherwise
-#include <string.h>
-//--End of modifications
 #include <math.h>
 #include <stdlib.h> // rand()
 #include <string.h> // memset()
