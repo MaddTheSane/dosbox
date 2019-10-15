@@ -54,8 +54,8 @@ This means that this file has had too many modifications to be safely replaceabl
 
 
 /* Define to 1 to use x86 dynamic cpu core */
-//--Modified 2009-02-26 by Alun Bestor to enable automatically for x86
-#if defined(__i386__)
+//--Modified 2019-10-15 by C.W. Betts to enable automatically for x86 and x86_64
+#if defined(__i386__) || defined(__x86_64__)
 	#define C_DYNAMIC_X86 1
 #endif
 //--End of modifications
@@ -65,11 +65,6 @@ This means that this file has had too many modifications to be safely replaceabl
    dynamic-x86 core */
 
 /* #undef C_DYNREC */
-//--Modified 2009-02-26 by Alun Bestor to enable automatically for X64
-#if defined(__x86_64__) && !defined(C_DYNAMIC_X86)
-	#define  C_DYNREC 1
-#endif
-//--End of modifications
 
 /* Define to 1 to enable floating point emulation */
 #define C_FPU 1
