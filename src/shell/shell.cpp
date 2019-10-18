@@ -359,13 +359,6 @@ void DOS_Shell::Run(void) {
 		//--Added 2009-12-13 by Alun Bestor to let Boxer monitor the autoexec process
 		boxer_shellWillStartAutoexec(this);
 		//--End of modifications
-	WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),VERSION);
-#if C_DEBUG
-		WriteOut(MSG_Get("SHELL_STARTUP_DEBUG"));
-#endif
-		if (machine == MCH_CGA) WriteOut(MSG_Get("SHELL_STARTUP_CGA"));
-		if (machine == MCH_HERC) WriteOut(MSG_Get("SHELL_STARTUP_HERC"));
-		WriteOut(MSG_Get("SHELL_STARTUP_END"));
 
 		strcpy(input_line,line.c_str());
 		line.erase();
