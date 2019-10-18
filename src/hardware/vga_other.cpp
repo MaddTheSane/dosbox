@@ -902,5 +902,20 @@ void boxer_setCGACompositeHueOffset(double offset)
         }
     }
 }
+
+//--Added 2019-10-18 by C.W. Betts to give Boxer control over CGA composite mode
+Bit8u boxer_CGAComponentMode(void)
+{
+	return cga_comp;
+}
+
+void boxer_setCGAComponentMode(Bit8u newCGA)
+{
+	cga_comp = newCGA;
+	if (cga_comp>2) cga_comp=0;
+	if (vga.tandy.mode_control & 0x2) {
+		write_cga(0x3d8,vga.tandy.mode_control,1);
+	}
+}
 //--End of modifications
 
