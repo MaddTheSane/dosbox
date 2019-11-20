@@ -72,14 +72,20 @@ MidiHandler::MidiHandler(){
 
 MidiHandler Midi_none;
 
-/* Include different midi drivers, lowest ones get checked first for default */
+/* Include different midi drivers, lowest ones get checked first for default.
+   Each header provides an independent midi interface. */
 
 //--Disabled 2011-09-25 by Alun Bestor: all MIDI handling is now done by Boxer
 
 //#if defined(MACOSX)
 //
+//#if defined(C_SUPPORTS_COREMIDI)
 //#include "midi_coremidi.h"
+//#endif
+//
+//#if defined(C_SUPPORTS_COREAUDIO)
 //#include "midi_coreaudio.h"
+//#endif
 //
 //#elif defined (WIN32)
 //

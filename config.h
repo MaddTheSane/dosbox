@@ -312,12 +312,27 @@ typedef		int64_t		Bit64s;
 
 //I'd rather map these to NSUinteger and NSInteger respectively, which would give the exact same result, but that would mean importing Obj-C headers into a C++ context and the compiler would shit itself
 #if defined(__LP64__)
-	typedef Bit64u Bitu;
-	typedef Bit64s Bits;
+typedef Bit64u Bitu;
+typedef Bit64s Bits;
+#define sBit32t
+#define sBit64t "ll"
+#define sBitfs sBit64fs
+#define sBitud "%lu"
+#define sBitux "%lx"
+#define sBituX "%lX"
 #else
-	typedef Bit32u Bitu;
-	typedef Bit32s Bits;
+typedef Bit32u Bitu;
+typedef Bit32s Bits;
+#define sBit32t
+#define sBit64t "ll"
+#define sBitfs sBit32fs
+#define sBitud "%u"
+#define sBitux "%x"
+#define sBituX "%X"
 #endif
+
+#define sBit64fs(a) sBit64t #a
+#define sBit32fs(a) sBit32t #a
 
 /* The size of `int *', as computed by sizeof. */
 //#define SIZEOF_INT_P 4
