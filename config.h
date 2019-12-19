@@ -52,6 +52,8 @@ This means that this file has had too many modifications to be safely replaceabl
 /* Define to 1 if you want serial passthrough support (Win32, Posix and OS/2). */
 #define C_DIRECTSERIAL 1
 
+/* Platform for SDL_cdrom compatibility layer (SDL 2.0 only) */
+#define C_COMPAT_SDL_CDROM_PLATFORM COMPAT_SDL_CDROM_PLATFORM_MACOSX
 
 /* Define to 1 to use x86 dynamic cpu core */
 //--Modified 2019-10-15 by C.W. Betts to enable automatically for x86 and x86_64
@@ -104,7 +106,10 @@ This means that this file has had too many modifications to be safely replaceabl
 
 
 /* Define to 1 to enable SDL_sound support */
-#define C_SDL_SOUND 1
+//#define C_SDL_SOUND 1
+
+/* Physical CD-ROM mounting support */
+#define C_PHYSICAL_CDROM_MOUNT 1
 
 /* Define to 1 if you have setpriority support */
 #define C_SET_PRIORITY 1

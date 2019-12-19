@@ -57,8 +57,8 @@ bool CDROM_Interface_SDL::SetDevice(char* path, int forceCD) {
 			//cached file information about the CD-ROM volumes
 			//This is needed otherwise SDL persists invalid file pointers to the CD-ROM and its tracks,
 			//way to go guys
-			SDL_QuitSubSystem(SDL_INIT_CDROM);
-			SDL_Init(SDL_INIT_CDROM);
+			Compat_SDL_CDROMQuit();
+			Compat_SDL_CDROMInit();
 			//--End of modifications
 		
 	        cd = SDL_CDOpen(driveID);
@@ -74,8 +74,8 @@ bool CDROM_Interface_SDL::SetDevice(char* path, int forceCD) {
 			//cached file information about the CD-ROM volumes
 			//This is needed otherwise SDL persists invalid file pointers to the CD-ROM and its tracks,
 			//way to go guys
-			SDL_QuitSubSystem(SDL_INIT_CDROM);
-			SDL_Init(SDL_INIT_CDROM);
+			Compat_SDL_CDROMQuit();
+			Compat_SDL_CDROMInit();
 			//--End of modifications
 			
 			cd = SDL_CDOpen(i);
