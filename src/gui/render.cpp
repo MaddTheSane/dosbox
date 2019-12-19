@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -376,11 +376,11 @@ forcenormal:
 	}
 	switch (render.src.bpp) {
 	case 8:
-		render.src.start = ( render.src.width * 1) / sizeof(Bitu);
-		if (gfx_flags & GFX_CAN_8)
-			gfx_flags |= GFX_LOVE_8;
-		else
-			gfx_flags |= GFX_LOVE_32;
+			render.src.start = ( render.src.width * 1) / sizeof(Bitu);
+			if (gfx_flags & GFX_CAN_8)
+				gfx_flags |= GFX_LOVE_8;
+			else
+				gfx_flags |= GFX_LOVE_32;
 			break;
 	case 15:
 			render.src.start = ( render.src.width * 2) / sizeof(Bitu);
@@ -534,7 +534,7 @@ void RENDER_SetSize(Bitu width,Bitu height,Bitu bpp,float fps,double ratio,bool 
 	RENDER_Reset( );
 }
 
-extern void GFX_SetTitle(Bit32s cycles, Bits frameskip,bool paused);
+extern void GFX_SetTitle(Bit32s cycles, int frameskip,bool paused);
 static void IncreaseFrameSkip(bool pressed) {
 	if (!pressed)
 		return;

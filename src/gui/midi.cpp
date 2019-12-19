@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include <assert.h>
@@ -68,12 +68,18 @@ MidiHandler::MidiHandler(){
 
 MidiHandler Midi_none;
 
-/* Include different midi drivers, lowest ones get checked first for default */
+/* Include different midi drivers, lowest ones get checked first for default.
+   Each header provides an independent midi interface. */
 
 #if defined(MACOSX)
 
+#if defined(C_SUPPORTS_COREMIDI)
 #include "midi_coremidi.h"
+#endif
+
+#if defined(C_SUPPORTS_COREAUDIO)
 #include "midi_coreaudio.h"
+#endif
 
 #elif defined (WIN32)
 

@@ -33,24 +33,24 @@
 #include "SDL.h"
 #include "SDL_thread.h"
 #include "SDL_mutex.h"
+#include "../compat_SDL_cdrom.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef void (*CDPlayerCompletionProc)(SDL_CD *cdrom) ;
-
-void     Lock(void);
-void     Unlock(void);
+void     Lock ();
+void     Unlock();
 int      LoadFile (const FSRef *ref, int startFrame, int endFrame); /* pass -1 to do nothing */
-int      ReleaseFile (void);
-int      PlayFile(void);
-int      PauseFile(void);
-void     SetCompletionProc(CDPlayerCompletionProc proc, SDL_CD *cdrom);
-int      ReadTOCData(FSVolumeRefNum theVolume, SDL_CD *theCD);
-int      ListTrackFiles(FSVolumeRefNum theVolume, FSRef *trackFiles, int numTracks);
-int      DetectAudioCDVolumes(FSVolumeRefNum *volumes, int numVolumes);
-int      GetCurrentFrame(void);
+int      ReleaseFile ();
+int      PlayFile  ();
+int      PauseFile ();
+void     SetCompletionProc (CDPlayerCompletionProc proc, SDL_CD *cdrom);
+int      ReadTOCData (FSVolumeRefNum theVolume, SDL_CD *theCD);
+int      ListTrackFiles (FSVolumeRefNum theVolume, FSRef *trackFiles, int numTracks);
+int      DetectAudioCDVolumes (FSVolumeRefNum *volumes, int numVolumes);
+int      GetCurrentFrame ();
 
 #ifdef __cplusplus
 };

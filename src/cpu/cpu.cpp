@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -32,7 +32,7 @@
 #include "support.h"
 
 Bitu DEBUG_EnableDebugger(void);
-extern void GFX_SetTitle(Bit32s cycles ,Bits frameskip,bool paused);
+extern void GFX_SetTitle(Bit32s cycles ,int frameskip,bool paused);
 
 #if 1
 #undef LOG
@@ -349,7 +349,7 @@ bool CPU_SwitchTask(Bitu new_tss_selector,TSwitchType tstype,Bitu old_eip) {
 	FillFlags();
 	TaskStateSegment new_tss;
 	if (!new_tss.SetSelector(new_tss_selector)) 
-		E_Exit("Illegal TSS for switch, selector=%x, switchtype=%x",new_tss_selector,tstype);
+		E_Exit("Illegal TSS for switch, selector=%" sBitfs(x) ", switchtype=%x",new_tss_selector,tstype);
 	if (tstype==TSwitch_IRET) {
 		if (!new_tss.desc.IsBusy())
 			E_Exit("TSS not busy for IRET");
@@ -503,7 +503,7 @@ doconforming:
 			Segs.val[cs]=new_cs;
 			break;
 		default:
-			E_Exit("Task switch CS Type %d",cs_desc.Type());
+			E_Exit("Task switch CS Type %" sBitfs(u),cs_desc.Type());
 		}
 	}
 	CPU_SetSegGeneral(es,new_es);
@@ -725,7 +725,7 @@ do_interrupt:
 					}
 					break;		
 				default:
-					E_Exit("INT:Gate Selector points to illegal descriptor with type %x",cs_desc.Type());
+					E_Exit("INT:Gate Selector points to illegal descriptor with type %" sBitfs(x),cs_desc.Type());
 				}
 
 				Segs.val[cs]=(gate_sel&0xfffc) | cpu.cpl;
@@ -755,7 +755,7 @@ do_interrupt:
 			}
 			return;
 		default:
-			E_Exit("Illegal descriptor type %X for int %X",gate.Type(),num);
+			E_Exit("Illegal descriptor type %" sBitfs(X) " for int %" sBitfs(X),gate.Type(),num);
 		}
 	}
 	assert(1);
@@ -902,7 +902,7 @@ void CPU_IRET(bool use32,Bitu oldeip) {
 				EXCEPTION_GP,n_cs_sel & 0xfffc)
 			break;
 		default:
-			E_Exit("IRET:Illegal descriptor type %X",n_cs_desc.Type());
+			E_Exit("IRET:Illegal descriptor type %" sBitfs(X), n_cs_desc.Type());
 		}
 		CPU_CHECK_COND(!n_cs_desc.saved.seg.p,
 			"IRET with nonpresent code segment",
@@ -1059,7 +1059,7 @@ CODE_jmp:
 			CPU_SwitchTask(selector,TSwitch_JMP,oldeip);
 			break;
 		default:
-			E_Exit("JMP Illegal descriptor type %X",desc.Type());
+			E_Exit("JMP Illegal descriptor type %" sBitfs(X),desc.Type());
 		}
 	}
 	assert(1);
@@ -1295,7 +1295,7 @@ call_code:
 			CPU_Exception(EXCEPTION_GP,selector & 0xfffc);
 			return;
 		default:
-			E_Exit("CALL:Descriptor type %x unsupported",call.Type());
+			E_Exit("CALL:Descriptor type %" sBitfs(x) " unsupported",call.Type());
 		}
 	}
 	assert(1);
@@ -1353,7 +1353,7 @@ void CPU_RET(bool use32,Bitu bytes,Bitu oldeip) {
 					EXCEPTION_GP,selector & 0xfffc)
 				break;
 			default:
-				E_Exit("RET from illegal descriptor type %X",desc.Type());
+				E_Exit("RET from illegal descriptor type %" sBitfs(X),desc.Type());
 			}
 RET_same_level:
 			if (!desc.saved.seg.p) {
@@ -1398,7 +1398,7 @@ RET_same_level:
 					EXCEPTION_GP,selector & 0xfffc)
 				break;
 			default:
-				E_Exit("RET from illegal descriptor type %X",desc.Type());		// or #GP(selector)
+				E_Exit("RET from illegal descriptor type %" sBitfs(X),desc.Type());		// or #GP(selector)
 			}
 
 			CPU_CHECK_COND(!desc.saved.seg.p,
@@ -1509,7 +1509,7 @@ bool CPU_LTR(Bitu selector) {
 			LOG(LOG_CPU,LOG_ERROR)("LTR failed, selector=%X (not present)",selector);
 			return CPU_PrepareException(EXCEPTION_NP,selector);
 		}
-		if (!cpu_tss.SetSelector(selector)) E_Exit("LTR failed, selector=%X",selector);
+		if (!cpu_tss.SetSelector(selector)) E_Exit("LTR failed, selector=%" sBitfs(X),selector);
 		cpu_tss.desc.SetBusy(true);
 		cpu_tss.SaveSelector();
 	} else {
@@ -1925,17 +1925,17 @@ bool CPU_SetSegGeneral(SegNames seg,Bitu value) {
 		if (seg==ss) {
 			// Stack needs to be non-zero
 			if ((value & 0xfffc)==0) {
-				E_Exit("CPU_SetSegGeneral: Stack segment zero");
-//				return CPU_PrepareException(EXCEPTION_GP,0);
+//				E_Exit("CPU_SetSegGeneral: Stack segment zero");
+				return CPU_PrepareException(EXCEPTION_GP,0);
 			}
 			Descriptor desc;
 			if (!cpu.gdt.GetDescriptor(value,desc)) {
-				E_Exit("CPU_SetSegGeneral: Stack segment beyond limits");
-//				return CPU_PrepareException(EXCEPTION_GP,value & 0xfffc);
+//				E_Exit("CPU_SetSegGeneral: Stack segment beyond limits");
+				return CPU_PrepareException(EXCEPTION_GP,value & 0xfffc);
 			}
 			if (((value & 3)!=cpu.cpl) || (desc.DPL()!=cpu.cpl)) {
-				E_Exit("CPU_SetSegGeneral: Stack segment with invalid privileges");
-//				return CPU_PrepareException(EXCEPTION_GP,value & 0xfffc);
+//				E_Exit("CPU_SetSegGeneral: Stack segment with invalid privileges");
+				return CPU_PrepareException(EXCEPTION_GP,value & 0xfffc);
 			}
 
 			switch (desc.Type()) {
@@ -2006,9 +2006,11 @@ bool CPU_SetSegGeneral(SegNames seg,Bitu value) {
 
 bool CPU_PopSeg(SegNames seg,bool use32) {
 	Bitu val=mem_readw(SegPhys(ss) + (reg_esp & cpu.stack.mask));
+	Bitu addsp = use32 ? 0x04 : 0x02;
+	//Calcullate this beforehande since the stack mask might change
+	Bit32u new_esp  = (reg_esp&cpu.stack.notmask) | ((reg_esp + addsp)&cpu.stack.mask);
 	if (CPU_SetSegGeneral(seg,val)) return true;
-	Bitu addsp=use32?0x04:0x02;
-	reg_esp=(reg_esp&cpu.stack.notmask)|((reg_esp+addsp)&cpu.stack.mask);
+	reg_esp = new_esp;
 	return false;
 }
 

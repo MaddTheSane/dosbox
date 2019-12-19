@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -50,7 +50,7 @@ static void DMA_BlockRead(PhysPt spage,PhysPt offset,void * data,Bitu size,Bit8u
 	Bit32u dma_wrap = ((0xffff<<dma16)+dma16) | dma_wrapping;
 	for ( ; size ; size--, offset++) {
 		if (offset>(dma_wrapping<<dma16)) {
-			LOG_MSG("DMA segbound wrapping (read): %x:%x size %x [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
+			LOG_MSG("DMA segbound wrapping (read): %x:%x size %" sBitfs(x) " [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
 		}
 		offset &= dma_wrap;
 		Bitu page = highpart_addr_page+(offset >> 12);
@@ -71,7 +71,7 @@ static void DMA_BlockWrite(PhysPt spage,PhysPt offset,void * data,Bitu size,Bit8
 	Bit32u dma_wrap = ((0xffff<<dma16)+dma16) | dma_wrapping;
 	for ( ; size ; size--, offset++) {
 		if (offset>(dma_wrapping<<dma16)) {
-			LOG_MSG("DMA segbound wrapping (write): %x:%x size %x [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
+			LOG_MSG("DMA segbound wrapping (write): %x:%x size %" sBitfs(x) " [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
 		}
 		offset &= dma_wrap;
 		Bitu page = highpart_addr_page+(offset >> 12);
@@ -109,7 +109,7 @@ bool SecondDMAControllerAvailable(void) {
 }
 
 static void DMA_Write_Port(Bitu port,Bitu val,Bitu /*iolen*/) {
-	//LOG(LOG_DMACONTROL,LOG_ERROR)("Write %X %X",port,val);
+	//LOG(LOG_DMACONTROL,LOG_ERROR)("Write %" sBitfs(X) " %" sBitfs(X),port,val);
 	if (port<0x10) {
 		/* write to the first DMA controller (channels 0-3) */
 		DmaControllers[0]->WriteControllerReg(port,val,1);
@@ -132,7 +132,7 @@ static void DMA_Write_Port(Bitu port,Bitu val,Bitu /*iolen*/) {
 }
 
 static Bitu DMA_Read_Port(Bitu port,Bitu iolen) {
-	//LOG(LOG_DMACONTROL,LOG_ERROR)("Read %X",port);
+	//LOG(LOG_DMACONTROL,LOG_ERROR)("Read %" sBitfs(X),port);
 	if (port<0x10) {
 		/* read from the first DMA controller (channels 0-3) */
 		return DmaControllers[0]->ReadControllerReg(port,iolen);
@@ -258,7 +258,7 @@ Bitu DmaController::ReadControllerReg(Bitu reg,Bitu /*len*/) {
 		}
 		return ret;
 	default:
-		LOG(LOG_DMACONTROL,LOG_NORMAL)("Trying to read undefined DMA port %x",reg);
+		LOG(LOG_DMACONTROL,LOG_NORMAL)("Trying to read undefined DMA port %" sBitfs(x),reg);
 		break;
 	}
 	return 0xffffffff;
@@ -308,7 +308,7 @@ again:
 			currcnt=0xffff;
 			masked=true;
 			UpdateEMSMapping();
-			DoCallBack(DMA_TRANSFEREND);
+			DoCallBack(DMA_MASKED);
 		}
 	}
 	return done;
@@ -340,7 +340,7 @@ again:
 			currcnt=0xffff;
 			masked=true;
 			UpdateEMSMapping();
-			DoCallBack(DMA_TRANSFEREND);
+			DoCallBack(DMA_MASKED);
 		}
 	}
 	return done;

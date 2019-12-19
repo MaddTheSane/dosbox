@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -67,7 +67,7 @@ struct JoyStick {
 	}
 
 	void transform_circular(){
-		float r = sqrt(xpos * xpos + ypos * ypos);
+		float r = sqrtf(xpos * xpos + ypos * ypos);
 		if (r == 0.0) {xfinal = xpos; yfinal = ypos; return;}
 		float deadzone_f = deadzone / 100.0f;
 		float s = 1.0f - deadzone_f;
@@ -77,8 +77,8 @@ struct JoyStick {
 		}
 
 		float deadzonescale = (r - deadzone_f) / s; //r if deadzone=0;
-		float xa = fabs(xpos);
-		float ya = fabs(ypos);
+		float xa = fabsf(xpos);
+		float ya = fabsf(ypos);
 		float maxpos = (ya>xa?ya:xa);
 		xfinal = xpos * deadzonescale/maxpos;
 		yfinal = ypos * deadzonescale/maxpos;

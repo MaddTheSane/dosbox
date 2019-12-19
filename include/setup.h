@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,9 +11,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 
@@ -43,7 +43,7 @@
 
 #ifndef CH_CSTDIO
 #define CH_CSTDIO
-#include <cstdio>
+#include <stdio.h>
 #endif
 
 
@@ -76,13 +76,13 @@ public:
 	enum Etype { V_NONE, V_HEX, V_BOOL, V_INT, V_STRING, V_DOUBLE,V_CURRENT} type;
 
 	/* Constructors */
-	Value()                      :_string(0),   type(V_NONE)                  { };
-	Value(Hex in)                :_hex(in),     type(V_HEX)                   { };
-	Value(int in)                :_int(in),     type(V_INT)                   { };
-	Value(bool in)               :_bool(in),    type(V_BOOL)                  { };
-	Value(double in)             :_double(in),  type(V_DOUBLE)                { };
-	Value(std::string const& in) :_string(new std::string(in)),type(V_STRING) { };
-	Value(char const * const in) :_string(new std::string(in)),type(V_STRING) { };
+	Value()                      :_hex(0), _bool(false),_int(0), _string(0),                  _double(0), type(V_NONE)   { };
+	Value(Hex in)                :_hex(in),_bool(false),_int(0), _string(0),                  _double(0), type(V_HEX)    { };
+	Value(int in)                :_hex(0), _bool(false),_int(in),_string(0),                  _double(0), type(V_INT)    { };
+	Value(bool in)               :_hex(0), _bool(in)   ,_int(0), _string(0),                  _double(0), type(V_BOOL)   { };
+	Value(double in)             :_hex(0), _bool(false),_int(0), _string(0),                  _double(in),type(V_DOUBLE) { };
+	Value(std::string const& in) :_hex(0), _bool(false),_int(0), _string(new std::string(in)),_double(0), type(V_STRING) { };
+	Value(char const * const in) :_hex(0), _bool(false),_int(0), _string(new std::string(in)),_double(0), type(V_STRING) { };
 	Value(Value const& in):_string(0) {plaincopy(in);}
 	~Value() { destroy();};
 	Value(std::string const& in,Etype _t) :_hex(0),_bool(false),_int(0),_string(0),_double(0),type(V_NONE) {SetValue(in,_t);}
