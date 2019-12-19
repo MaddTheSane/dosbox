@@ -65,7 +65,7 @@ CF_ENUM(OSStatus) {
 
 class AudioFileManager;
 
-#pragma mark __________ AudioFilePlayer
+#pragma mark - AudioFilePlayer
 class AudioFilePlayer
 {
 public:
@@ -74,13 +74,13 @@ public:
     void            SetStartFrame(int frame); /* seek in the file */
     int             GetCurrentFrame(); /* get the current frame position */
     void            SetStopFrame(int frame);   /* set limit in the file */
-    bool            Connect();
-    void            Disconnect();
+    bool            Connect(void);
+    void            Disconnect(void);
     void            DoNotification(OSStatus inError);
-    bool            IsConnected();
-    AudioUnit       GetDestUnit();
-    void            Print();
-    ~AudioFilePlayer();
+    bool            IsConnected(void);
+    AudioUnit       GetDestUnit(void);
+    void            Print(void);
+    virtual ~AudioFilePlayer();
     AudioFilePlayer(const FSRef *inFileRef);
     AudioFilePlayer(CFURLRef inFileURL);
 
@@ -101,32 +101,35 @@ private:
     
     int                             mStartFrame;
     
-#pragma mark __________ Private_Methods
+#pragma mark - Private_Methods
     
     int          OpenFile(const FSRef *inRef, SInt64 *outFileSize);
     bool         OpenFile(CFURLRef inURL, ssize_t *outFileSize);
 };
 
 
-#pragma mark __________ AudioFileManager
+#pragma mark - AudioFileManager
 class AudioFileManager
 {
 public:
         /* this method should NOT be called by an object of this class
            as it is called by the parent's Disconnect() method */
-    void                Disconnect();
-    int                 DoConnect();
+    void                Disconnect(void);
+    int                 DoConnect(void);
     OSStatus            Read(char *buffer, ByteCount *len);
-    const char*         GetFileBuffer();
-    const AudioFilePlayer *GetParent();
-    void                SetPosition(SInt64 pos);  /*!< seek/rewind in the file */
-    int                 GetByteCounter();  /*!< return actual bytes streamed to audio hardware */
-    void                SetEndOfFile(SInt64 pos);  /*!< set the "EOF" (will behave just like it reached eof) */
+    const char*         GetFileBuffer(void);
+    const AudioFilePlayer *GetParent(void);
+    /*! seek/rewind in the file */
+    void                SetPosition(SInt64 pos);
+    /*! return actual bytes streamed to audio hardware */
+    int                 GetByteCounter(void);
+    /*! set the "EOF" (will behave just like it reached eof) */
+    void                SetEndOfFile(SInt64 pos);
     AudioFileManager(AudioFilePlayer *inParent,
                      FSIORefNum      inForkRefNum,
                      SInt64          inFileLength,
                      UInt32          inChunkSize);
-    ~AudioFileManager();
+    virtual ~AudioFileManager();
     
 protected:
     AudioFilePlayer*    mParent;
@@ -157,7 +160,7 @@ public:
 protected:
     OSStatus            Render(AudioBufferList *ioData);
     OSStatus            GetFileData(void** inOutData, UInt32 *inOutDataSize);
-    void                AfterRender();
+    void                AfterRender(void);
 
 public:
     static OSStatus     FileInputProc(void                            *inRefCon,

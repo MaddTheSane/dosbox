@@ -100,7 +100,7 @@ bool SDLOSXCAGuard::Lock()
     int theAnswer = 0;
     
     if (pthread_self() != mOwner) {
-        OSStatus theError = pthread_mutex_lock(&mMutex);
+        int theError = pthread_mutex_lock(&mMutex);
         (void)theError;
         assert(theError == 0);
         mOwner = pthread_self();
@@ -112,7 +112,7 @@ bool SDLOSXCAGuard::Lock()
 
 void SDLOSXCAGuard::Unlock()
 {
-    OSStatus theError;
+    int theError;
     assert(pthread_self() == mOwner);
     
     mOwner = 0;
@@ -143,7 +143,7 @@ bool SDLOSXCAGuard::Try(int *outWasLocked)
 
 void SDLOSXCAGuard::Wait()
 {
-    OSStatus theError;
+    int theError;
     assert(pthread_self() == mOwner);
     
     mOwner = 0;
@@ -156,7 +156,7 @@ void SDLOSXCAGuard::Wait()
 
 void SDLOSXCAGuard::Notify()
 {
-    OSStatus theError = pthread_cond_signal(&mCondVar);
+    int theError = pthread_cond_signal(&mCondVar);
     (void)theError;
     assert(theError == 0);
 }
@@ -168,7 +168,7 @@ SDLOSXCAGuard *new_SDLOSXCAGuard()
 
 SDLOSXCAGuard::SDLOSXCAGuard()
 {
-    OSStatus theError;
+    int theError;
 
     theError = pthread_mutex_init(&mMutex, NULL);
     (void)theError;

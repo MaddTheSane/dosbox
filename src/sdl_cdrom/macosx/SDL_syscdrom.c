@@ -86,8 +86,8 @@ static FSRef* GetFileForOffset (SDL_CD *cdrom, int start, int length,  int *outS
     
     for (i = 0; i < cdrom->numtracks; i++) {
     
-        if (cdrom->track[i].offset <= start &&
-            start < (cdrom->track[i].offset + cdrom->track[i].length))
+        if ((long)cdrom->track[i].offset <= start &&
+            start < (long)(cdrom->track[i].offset + cdrom->track[i].length))
             break;
     }
     
@@ -98,7 +98,7 @@ static FSRef* GetFileForOffset (SDL_CD *cdrom, int start, int length,  int *outS
 
     *outStartFrame = start - cdrom->track[i].offset;
     
-    if ((*outStartFrame + length) < cdrom->track[i].length) {
+    if ((*outStartFrame + length) < (long)cdrom->track[i].length) {
         *outStopFrame = *outStartFrame + length;
         length = 0;
         nextTrackFrame = -1;

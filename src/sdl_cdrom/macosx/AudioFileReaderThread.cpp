@@ -50,14 +50,14 @@ typedef struct S_FileData
 class FileReaderThread {
 public:
     FileReaderThread();
-    ~FileReaderThread();
+    virtual ~FileReaderThread();
 
-    SDLOSXCAGuard*                    GetGuard();
+    SDLOSXCAGuard*              GetGuard();
     void                        AddReader();
     void                        RemoveReader(AudioFileManager* inItem);
     int                         TryNextRead(AudioFileManager* inItem);
 
-    int     mThreadShouldDie;
+    bool    mThreadShouldDie;
     
 private:
     typedef std::list<AudioFileManager*> FileData;
@@ -104,7 +104,7 @@ void FileReaderThread::AddReader()
 {
     if (mNumReaders == 0)
     {
-        mThreadShouldDie = 0;
+        mThreadShouldDie = false;
         StartFixedPriorityThread();
     }
     mNumReaders++;
@@ -118,7 +118,7 @@ void FileReaderThread::RemoveReader (AudioFileManager* inItem)
         
         mFileData.remove(inItem);
         if (--mNumReaders == 0) {
-            mThreadShouldDie = 1;
+            mThreadShouldDie = true;
             mGuard->Notify(); /* wake up thread so it will quit */
             mGuard->Wait();   /* wait for thread to die */
         }
@@ -315,7 +315,7 @@ FileReaderThread *new_FileReaderThread()
 
 FileReaderThread::FileReaderThread()
 {
-    mThreadShouldDie = 0;
+    mThreadShouldDie = false;
     mNumReaders = 0;
     mFileData = FileData();
 

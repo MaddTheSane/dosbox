@@ -213,10 +213,11 @@ int ReadTOCData(FSVolumeRefNum theVolume, SDL_CD *theCD)
         goto bail;
     }
     
-    propertyListRef = CFPropertyListCreateFromXMLData (kCFAllocatorDefault,
-                                                       mutDataRef,
-                                                       kCFPropertyListImmutable,
-                                                       NULL);
+    propertyListRef = CFPropertyListCreateWithData (kCFAllocatorDefault,
+                                                    mutDataRef,
+                                                    kCFPropertyListImmutable,
+                                                    NULL,
+                                                    NULL);
     if (propertyListRef == NULL) {
         error = "CFPropertyListCreateFromXMLData";
         goto bail;

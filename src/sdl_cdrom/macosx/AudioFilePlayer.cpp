@@ -83,7 +83,7 @@ bool AudioFilePlayer::SetDestination (AudioUnit  *inDestUnit)
     if (desc.componentType != kAudioUnitType_Output) {
         result = badComponentInstance;
         THROW_RESULT("BAD COMPONENT")
-        if (result) return 0;
+        if (result) return false;
     }
 
     /* Set the input format of the audio unit. */

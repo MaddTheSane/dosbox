@@ -96,11 +96,12 @@ class SDLOSXCAGuard
 /*  Construction/Destruction */
 public:
     SDLOSXCAGuard();
-    ~SDLOSXCAGuard();
+    virtual ~SDLOSXCAGuard();
 /*  Actions */
     bool    Lock();
     void    Unlock();
-    bool    Try(int *outWasLocked);    /* returns true if lock is free, false if not */
+    /*! returns true if lock is free, false if not */
+    bool    Try(int *outWasLocked);
     void    Wait();
     void    Notify();
 
@@ -112,6 +113,8 @@ protected:
 };
 
 extern "C" {
+#else
+typedef struct __SDLOSXCAGuard SDLOSXCAGuard;
 #endif
 
 SDLOSXCAGuard *new_SDLOSXCAGuard(void);
