@@ -90,6 +90,10 @@ static struct {
 	bool nosound;
 	Bit32u freq;
 	Bit32u blocksize;
+#if SDL_VERSION_ATLEAST(2,0,0)
+	//Note: As stated earlier, all sdl code shall rather be in sdlmain
+	SDL_AudioDeviceID sdldevice;
+#endif
 } mixer;
 
 Bit8u MixTemp[MIXER_BUFSIZE];
@@ -131,6 +135,22 @@ void MIXER_DelChannel(MixerChannel* delchan) {
 	}
 }
 
+static void MIXER_LockAudioDevice(void) {
+#if SDL_VERSION_ATLEAST(2,0,0)
+	SDL_LockAudioDevice(mixer.sdldevice);
+#else
+	SDL_LockAudio();
+#endif
+}
+
+static void MIXER_UnlockAudioDevice(void) {
+#if SDL_VERSION_ATLEAST(2,0,0)
+	SDL_UnlockAudioDevice(mixer.sdldevice);
+#else
+	SDL_UnlockAudio();
+#endif
+}
+
 void MixerChannel::UpdateVolume(void) {
     //--Modified 2012-02-26 by Alun Bestor to give Boxer control over master volume
     //volmul[0]=(Bits)((1 << MIXER_VOLSHIFT)*scale*volmain[0]*mixer.mastervol[0]);
@@ -156,9 +176,9 @@ void MixerChannel::Enable(bool _yesno) {
 	enabled=_yesno;
 	if (enabled) {
 		freq_counter = 0;
-		SDL_LockAudio();
+		MIXER_LockAudioDevice();
 		if (done<mixer.done) done=mixer.done;
-		SDL_UnlockAudio();
+		MIXER_UnlockAudioDevice();
 	}
 }
 
@@ -390,14 +410,14 @@ void MixerChannel::AddSamples_s32_nonnative(Bitu len,const Bit32s * data) {
 }
 
 void MixerChannel::FillUp(void) {
-	SDL_LockAudio();
+	MIXER_LockAudioDevice();
 	if (!enabled || done<mixer.done) {
-		SDL_UnlockAudio();
+		MIXER_UnlockAudioDevice();
 		return;
 	}
 	float index=PIC_TickIndex();
 	Mix((Bitu)(index*mixer.needed));
-	SDL_UnlockAudio();
+	MIXER_UnlockAudioDevice();
 }
 
 extern bool ticksLocked;
@@ -447,12 +467,12 @@ static void MIXER_MixData(Bitu needed) {
 }
 
 static void MIXER_Mix(void) {
-	SDL_LockAudio();
+	MIXER_LockAudioDevice();
 	MIXER_MixData(mixer.needed);
 	mixer.tick_counter += mixer.tick_add;
 	mixer.needed+=(mixer.tick_counter >> TICK_SHIFT);
 	mixer.tick_counter &= TICK_MASK;
-	SDL_UnlockAudio();
+	MIXER_UnlockAudioDevice();
 }
 
 static void MIXER_Mix_NoSound(void) {
@@ -476,6 +496,9 @@ static void MIXER_Mix_NoSound(void) {
 }
 
 static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
+#if SDL_VERSION_ATLEAST(2,0,0)
+	memset(stream, 0, len);
+#endif
 	Bitu need=(Bitu)len/MIXER_SSIZE;
 	Bit16s * output=(Bit16s *)stream;
 	Bitu reduce;
@@ -706,7 +729,11 @@ void MIXER_Init(Section* sec) {
 		LOG_MSG("MIXER: No Sound Mode Selected.");
 		mixer.tick_add=calc_tickadd(mixer.freq);
 		TIMER_AddTickHandler(MIXER_Mix_NoSound);
+#if SDL_VERSION_ATLEAST(2,0,0)
+	} else if ((mixer.sdldevice = SDL_OpenAudioDevice(NULL, 0, &spec, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE)) ==0 ) {
+#else
 	} else if (SDL_OpenAudio(&spec, &obtained) <0 ) {
+#endif
 		mixer.nosound = true;
 		LOG_MSG("MIXER: Can't open audio: %s , running in nosound mode.",SDL_GetError());
 		mixer.tick_add=calc_tickadd(mixer.freq);
@@ -718,7 +745,11 @@ void MIXER_Init(Section* sec) {
 		mixer.blocksize=obtained.samples;
 		mixer.tick_add=calc_tickadd(mixer.freq);
 		TIMER_AddTickHandler(MIXER_Mix);
+#if SDL_VERSION_ATLEAST(2,0,0)
+		SDL_PauseAudioDevice(mixer.sdldevice, 0);
+#else
 		SDL_PauseAudio(0);
+#endif
 	}
 	mixer.min_needed=section->Get_int("prebuffer");
 	if (mixer.min_needed>100) mixer.min_needed=100;
@@ -728,6 +759,18 @@ void MIXER_Init(Section* sec) {
 	PROGRAMS_MakeFile("MIXER.COM",MIXER_ProgramStart);
 }
 
+void MIXER_CloseAudioDevice(void) {
+	if (!mixer.nosound) {
+#if SDL_VERSION_ATLEAST(2,0,0)
+		if (mixer.sdldevice != 0) {
+			SDL_CloseAudioDevice(mixer.sdldevice);
+			mixer.sdldevice = 0;
+		}
+#else
+		SDL_CloseAudio();
+#endif
+	}
+}
 
 //--Added 2012-02-26 by Alun Bestor to give Boxer an easy way to update channel volumes.
 void boxer_updateVolumes()

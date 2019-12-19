@@ -1,0 +1,37 @@
+
+# /
+/aclocal.m4
+/autom4te.cache
+/config.h
+/config.h.in
+/config.log
+/config.status
+/config.guess
+/config.sub
+/configure
+/depcomp
+/install-sh
+/missing
+/mkinstalldirs
+/stamp-h1
+
+.deps/
+Makefile
+Makefile.in
+
+/src/dosbox
+
+# /visualc_net/
+/visualc_net/Release
+/visualc_net/Debug
+/visualc_net/*.ncb
+/visualc_net/*.suo
+/visualc_net/*.conf
+/visualc_net/.vs
+
+
+*.o
+lib*.a
+
+# Mac OS X
+.DS_Store
