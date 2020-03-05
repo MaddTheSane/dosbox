@@ -110,7 +110,8 @@ typedef void (APIENTRYP PFNGLGETSHADERIVPROC) (GLuint shader, GLenum pname, GLin
 typedef void (APIENTRYP PFNGLGETSHADERINFOLOGPROC) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
 typedef GLint (APIENTRYP PFNGLGETUNIFORMLOCATIONPROC) (GLuint program, const GLchar *name);
 typedef void (APIENTRYP PFNGLLINKPROGRAMPROC) (GLuint program);
-typedef void (APIENTRYP PFNGLSHADERSOURCEPROC) (GLuint shader, GLsizei count, const GLchar **string, const GLint *length);
+//Change to NP, as Khronos changes include guard :(
+typedef void (APIENTRYP PFNGLSHADERSOURCEPROC_NP) (GLuint shader, GLsizei count, const GLchar **string, const GLint *length);
 typedef void (APIENTRYP PFNGLUNIFORM2FPROC) (GLint location, GLfloat v0, GLfloat v1);
 typedef void (APIENTRYP PFNGLUNIFORM1IPROC) (GLint location, GLint v0);
 typedef void (APIENTRYP PFNGLUSEPROGRAMPROC) (GLuint program);
@@ -136,7 +137,7 @@ PFNGLGETSHADERIVPROC glGetShaderiv = NULL;
 PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog = NULL;
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation = NULL;
 PFNGLLINKPROGRAMPROC glLinkProgram = NULL;
-PFNGLSHADERSOURCEPROC glShaderSource = NULL;
+PFNGLSHADERSOURCEPROC_NP glShaderSource = NULL;
 PFNGLUNIFORM2FPROC glUniform2f = NULL;
 PFNGLUNIFORM1IPROC glUniform1i = NULL;
 PFNGLUSEPROGRAMPROC glUseProgram = NULL;
@@ -899,13 +900,18 @@ dosurface:
 		if (!(flags & GFX_CAN_32) || (flags & GFX_RGBONLY)) goto dosurface;
 		if (!GFX_SetupSurfaceScaled(0,0)) goto dosurface;
 		sdl.overlay = SDL_CreateYUVOverlay(width * 2, height, SDL_UYVY_OVERLAY, sdl.surface);
-
-		if (sdl.overlay && sdl.overlay->pitches[0] < 4 * width) {
-			// We get a distorted image in this case. Cleanup and go to surface.
-			LOG_MSG("SDL: overlay pitch is too small. (%u < %u)", sdl.overlay->pitches[0], width * 4);
-			SDL_FreeYUVOverlay(sdl.overlay);
-			sdl.overlay = 0;
+		
+		if (sdl.overlay && SDL_LockYUVOverlay(sdl.overlay) == 0) {
+			//Need to lock in order to get real pitchdata (at least on windows with dx backend)
+			if (sdl.overlay->pitches[0] < 4 * width) {
+				// We get a distorted image in this case. Cleanup and go to surface.
+				LOG_MSG("SDL: overlay pitch is too small. (%u < %" sBitfs(u) ")", sdl.overlay->pitches[0], width * 4);
+				SDL_UnlockYUVOverlay(sdl.overlay);
+				SDL_FreeYUVOverlay(sdl.overlay);
+				sdl.overlay = 0;
+			} else SDL_UnlockYUVOverlay(sdl.overlay);
 		}
+
 		if (!sdl.overlay) {
 			LOG_MSG("SDL: Failed to create overlay, switching back to surface.");
 			goto dosurface;
@@ -1757,7 +1763,7 @@ static void GUI_StartUp(Section * sec) {
 			glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)SDL_GL_GetProcAddress("glGetShaderInfoLog");
 			glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)SDL_GL_GetProcAddress("glGetUniformLocation");
 			glLinkProgram = (PFNGLLINKPROGRAMPROC)SDL_GL_GetProcAddress("glLinkProgram");
-			glShaderSource = (PFNGLSHADERSOURCEPROC)SDL_GL_GetProcAddress("glShaderSource");
+			glShaderSource = (PFNGLSHADERSOURCEPROC_NP)SDL_GL_GetProcAddress("glShaderSource");
 			glUniform2f = (PFNGLUNIFORM2FPROC)SDL_GL_GetProcAddress("glUniform2f");
 			glUniform1i = (PFNGLUNIFORM1IPROC)SDL_GL_GetProcAddress("glUniform1i");
 			glUseProgram = (PFNGLUSEPROGRAMPROC)SDL_GL_GetProcAddress("glUseProgram");
@@ -2072,6 +2078,8 @@ void GFX_Events() {
 								if (ev.active.gain) {
 									paused = false;
 									GFX_SetTitle(-1,-1,false);
+									SetPriority(sdl.priority.focus);
+									CPU_Disable_SkipAutoAdjust();
 								}
 
 								/* Now poke a "release ALT" command into the keyboard buffer
@@ -2182,7 +2190,7 @@ void Config_Add_SDL() {
 	Pstring = sdl_sec->Add_string("fullresolution",Property::Changeable::Always,"original");
 	Pstring->Set_help("What resolution to use for fullscreen: original, desktop or a fixed size (e.g. 1024x768).\n"
 	                  "Using your monitor's native resolution with aspect=true might give the best results.\n"
-			  "If you end up with small window on a large screen, try an output different from surface."
+			  "If you end up with small window on a large screen, try an output different from surface.\n"
 	                  "On Windows 10 with display scaling (Scale and layout) set to a value above 100%, it is recommended\n"
 	                  "to use a lower full/windowresolution, in order to avoid window size problems.");
 
