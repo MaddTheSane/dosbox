@@ -64,6 +64,12 @@ This means that this file has had too many modifications to be safely replaceabl
 /* Define to 1 to use recompiling cpu core. Can not be used together with the
    dynamic-x86 core */
 
+//--Modified 2020-07-03 by C.W. Betts to enable automatically for ARM
+#if defined(__arm64__)
+	#define C_DYNREC 1
+#endif
+//--End of modifications
+
 /* #undef C_DYNREC */
 
 /* Define to 1 to enable floating point emulation */
@@ -122,6 +128,8 @@ This means that this file has had too many modifications to be safely replaceabl
 	#define C_TARGETCPU X86
 #elif defined(__ppc__) || defined(__ppc64__)
 	#define C_TARGETCPU POWERPC
+#elif defined(__arm64__)
+	#define C_TARGETCPU ARMV8LE
 #endif
 //--End of modifications
 
