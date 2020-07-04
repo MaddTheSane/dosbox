@@ -32,6 +32,13 @@
 */
 
 static CacheBlockDynRec * CreateCacheBlock(CodePageHandlerDynRec * codepage,PhysPt start,Bitu max_opcodes) {
+
+#if (C_HAVE_MPROTECT)
+			if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_WRITE|PROT_READ) != 0)
+				LOG_MSG("Setting execute permission on the code cache has failed");
+#endif
+
+	
 	// initialize a load of variables
 	decode.code_start=start;
 	decode.code=start;
@@ -607,6 +614,11 @@ illegalopcode:
 	dyn_closeblock();
 	goto finish_block;
 finish_block:
+
+#if (C_HAVE_MPROTECT)
+			if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_EXEC|PROT_READ) != 0)
+				LOG_MSG("Setting execute permission on the code cache has failed");
+#endif
 
 	// setup the correct end-address
 	decode.page.index--;

@@ -602,7 +602,7 @@ static void cache_init(bool enable) {
 			cache_code=cache_code+PAGESIZE_TEMP;
 
 #if (C_HAVE_MPROTECT)
-			if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_WRITE|PROT_READ|PROT_EXEC))
+			if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_WRITE|PROT_READ) != 0)
 				LOG_MSG("Setting execute permission on the code cache has failed");
 #endif
 			CacheBlockDynRec * block=cache_getblock();
@@ -626,6 +626,11 @@ static void cache_init(bool enable) {
 		core_dynrec.runcode=(BlockReturn (*)(Bit8u*))cache.pos;
 //		link_blocks[1].cache.start=cache.pos;
 		dyn_run_code();
+		
+#if (C_HAVE_MPROTECT)
+			if(mprotect(cache_code_link_blocks,CACHE_TOTAL+CACHE_MAXSIZE+PAGESIZE_TEMP,PROT_EXEC|PROT_READ) != 0)
+				LOG_MSG("Setting execute permission on the code cache has failed");
+#endif
 
 		cache.free_pages=0;
 		cache.last_page=0;
