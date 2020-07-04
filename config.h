@@ -67,6 +67,7 @@ This means that this file has had too many modifications to be safely replaceabl
 //--Modified 2020-07-03 by C.W. Betts to enable automatically for ARM
 #if defined(__arm64__)
 	#define C_DYNREC 1
+    #define PAGESIZE 0x4000
 #endif
 //--End of modifications
 
