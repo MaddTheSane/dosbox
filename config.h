@@ -107,11 +107,17 @@ This means that this file has had too many modifications to be safely replaceabl
 #define C_MODEM 1
 
 /* Define to 1 to use opengl display output support */
-#define C_OPENGL 1
+#define C_OPENGL 0
+
+/* Set to 1 to enable SDL 1.x support */
+#define C_SDL1 0
+
+/* Set to 1 to enable SDL 2.x support */
+#define C_SDL2 1
 
 
 /* Define to 1 to enable SDL_sound support */
-#define C_SDL_SOUND 1
+// #define C_SDL_SOUND 1
 
 /* Define to 1 if you have setpriority support */
 #define C_SET_PRIORITY 1
